@@ -81,8 +81,6 @@ if analysis_messages:
     try:
         response = requests.post(url, data=payload)
         response.raise_for_status()
-        print("Wiadomość wysłana: zmiana trendu!")
+        print("Wiadomość wysłana pomyślnie!")
     except requests.RequestException as e:
         print(f"Błąd wysyłania wiadomości: {e}")
-else:
-    print("Brak zmiany trendu.")
