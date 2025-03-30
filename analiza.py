@@ -73,7 +73,7 @@ for name, ticker in symbols.items():
         analysis_messages.append(analysis)
 
 # Jeśli są sygnały zmiany trendu, wyślij wiadomość
-if analysis_messages:
+if True:
     message = "\n\n".join(analysis_messages)
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": message}
