@@ -62,28 +62,35 @@ def analyze_trend(symbol, data):
 # Sprawdzenie pobrania danych
 print("Pobieram dane z Yahoo Finance...")
 
+# Sprawdzenie pobrania danych
+print("Pobieram dane z Yahoo Finance...")
+
 # Pobierz dane i przeprowadź analizę dla obu indeksów
 analysis_messages = []
 for name, ticker in symbols.items():
-    print(f"Pobieram dane dla {name} ({ticker})...")
-    data = yf.download(ticker, period=lookback, interval=interval)
-    
-    if data is None or data.empty:
-        print(f"Brak danych dla {name}!")
-        continue
-
-    print(f"Dane dla {name} pobrane pomyślnie. Ostatnie wartości:")
-    print(data.tail())  # Wyświetl ostatnie wiersze danych
-
-    # Dodatkowa kontrola danych
     try:
-        print(f"Ostatnia cena zamknięcia dla {name}: {data['Close'].iloc[-1]}")
-    except Exception as e:
-        print(f"Błąd odczytu ceny zamknięcia dla {name}: {e}")
+        print(f"Pobieram dane dla {name} ({ticker}) z Yahoo Finance...")
+        data = yf.download(ticker, period=lookback, interval=interval)
+        print(f"Dane pobrane dla {name}:")
+        print(data.tail())  # Wyświetl ostatnie wiersze danych
+        
+        if data is None or data.empty:
+            print(f"Brak danych dla {name}!")
+            continue
 
-    analysis = analyze_trend(name, data)
-    if analysis:
-        print(f"Wykryto zmianę trendu dla {name}!")
-        analysis_messages.append(analysis)
-    else:
-        print(f"Brak zmiany trendu dla {name}.")
+        # Testowy wydruk cen
+        try:
+            last_price = data['Close'].iloc[-1]
+            print(f"Ostatnia cena zamknięcia dla {name}: {last_price}")
+        except Exception as e:
+            print(f"Błąd przy odczycie ceny zamknięcia dla {name}: {e}")
+            continue
+        
+        analysis = analyze_trend(name, data)
+        if analysis:
+            print(f"Wykryto zmianę trendu dla {name}!")
+            analysis_messages.append(analysis)
+        else:
+            print(f"Brak zmiany trendu dla {name}.")
+    except Exception as e:
+        print(f"Błąd podczas pobierania danych dla {name}: {e}")
