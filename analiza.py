@@ -59,28 +59,31 @@ def analyze_trend(symbol, data):
         )
         return analysis_text
     return None
+# Sprawdzenie pobrania danych
+print("Pobieram dane z Yahoo Finance...")
 
 # Pobierz dane i przeprowadź analizę dla obu indeksów
 analysis_messages = []
 for name, ticker in symbols.items():
+    print(f"Pobieram dane dla {name} ({ticker})...")
     data = yf.download(ticker, period=lookback, interval=interval)
+    
     if data is None or data.empty:
         print(f"Brak danych dla {name}!")
         continue
 
+    print(f"Dane dla {name} pobrane pomyślnie. Ostatnie wartości:")
+    print(data.tail())  # Wyświetl ostatnie wiersze danych
+
+    # Dodatkowa kontrola danych
+    try:
+        print(f"Ostatnia cena zamknięcia dla {name}: {data['Close'].iloc[-1]}")
+    except Exception as e:
+        print(f"Błąd odczytu ceny zamknięcia dla {name}: {e}")
+
     analysis = analyze_trend(name, data)
     if analysis:
+        print(f"Wykryto zmianę trendu dla {name}!")
         analysis_messages.append(analysis)
-
-# Jeśli są sygnały zmiany trendu, wyślij wiadomość
-if analysis_messages:
-    message = "\n\n".join(analysis_messages)
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    payload = {"chat_id": CHAT_ID, "text": message}
-
-    try:
-        response = requests.post(url, data=payload)
-        response.raise_for_status()
-        print("Wiadomość wysłana pomyślnie!")
-    except requests.RequestException as e:
-        print(f"Błąd wysyłania wiadomości: {e}")
+    else:
+        print(f"Brak zmiany trendu dla {name}.")
