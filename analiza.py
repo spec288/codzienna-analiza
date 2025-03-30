@@ -3,104 +3,98 @@ import pandas as pd
 import numpy as np
 import requests
 
-# Telegram Bot credentials (wprowadź właściwy token i chat_id)
-BOT_TOKEN = "TWOJ_TOKEN_BOTA"
-CHAT_ID = "TWOJE_CHAT_ID"
+# Konfiguracja Telegrama
+TOKEN = "8170414773:AAGpuW4PUBJNcbkarA8x-P6D6I3_ke9XcOU"  # Token bota
+CHAT_ID = "-1002655090041"  # ID czatu
 
 # Yahoo Finance ticker symbols for US30 (Dow Jones) and DAX
 ticker_US30 = "^DJI"    # Dow Jones Industrial Average
 ticker_DAX = "^GDAXI"   # German DAX Index
 
-# Download recent data (ostatnie 60 dni dziennych notowań)
+# Pobierz dane giełdowe (ostatnie 60 dni dziennych notowań)
 data_us30 = yf.download(ticker_US30, period="60d")
 data_dax = yf.download(ticker_DAX, period="60d")
 
-# Calculate RSI and MACD for US30 (Dow Jones)
-close_us30 = data_us30["Close"]
-# RSI 14-dniowy
-delta_us30 = close_us30.diff()
-up_us30 = delta_us30.clip(lower=0)
-down_us30 = -delta_us30.clip(upper=0)
-avg_gain_us30 = up_us30.rolling(window=14).mean()
-avg_loss_us30 = down_us30.rolling(window=14).mean()
-rs_us30 = avg_gain_us30 / avg_loss_us30
-rsi_us30 = 100 - (100 / (1 + rs_us30))
-# MACD (12, 26, 9)
-ema12_us30 = close_us30.ewm(span=12, adjust=False).mean()
-ema26_us30 = close_us30.ewm(span=26, adjust=False).mean()
-macd_line_us30 = ema12_us30 - ema26_us30
-signal_line_us30 = macd_line_us30.ewm(span=9, adjust=False).mean()
-hist_us30 = macd_line_us30 - signal_line_us30
+def calculate_rsi(data, window=14):
+    delta = data.diff()
+    up = delta.clip(lower=0)
+    down = -delta.clip(upper=0)
+    avg_gain = up.rolling(window).mean()
+    avg_loss = down.rolling(window).mean()
+    rs = avg_gain / avg_loss
+    rsi = 100 - (100 / (1 + rs))
+    return rsi
 
-# Extract current indicator values (as floats)
-rsi_current_us30 = float(rsi_us30.iloc[-1])
-macd_current_us30 = float(macd_line_us30.iloc[-1])
-signal_current_us30 = float(signal_line_us30.iloc[-1])
-prev_macd_us30 = float(macd_line_us30.iloc[-2])
-prev_signal_us30 = float(signal_line_us30.iloc[-2])
+def calculate_macd(data):
+    ema12 = data.ewm(span=12, adjust=False).mean()
+    ema26 = data.ewm(span=26, adjust=False).mean()
+    macd_line = ema12 - ema26
+    signal_line = macd_line.ewm(span=9, adjust=False).mean()
+    return macd_line, signal_line
 
-# Analyze US30 indicators
-analysis_us30 = "US30 (Dow Jones): "
-if rsi_current_us30 > 70:
-    analysis_us30 += f"RSI={rsi_current_us30:.2f} (overbought). "
-elif rsi_current_us30 < 30:
-    analysis_us30 += f"RSI={rsi_current_us30:.2f} (oversold). "
-else:
-    analysis_us30 += f"RSI={rsi_current_us30:.2f}. "
-if macd_current_us30 > signal_current_us30 and prev_macd_us30 < prev_signal_us30:
-    analysis_us30 += f"MACD bullish crossover (MACD={macd_current_us30:.2f}, Signal={signal_current_us30:.2f})."
-elif macd_current_us30 < signal_current_us30 and prev_macd_us30 > prev_signal_us30:
-    analysis_us30 += f"MACD bearish crossover (MACD={macd_current_us30:.2f}, Signal={signal_current_us30:.2f})."
-else:
-    if macd_current_us30 > signal_current_us30:
-        analysis_us30 += f"MACD above Signal (MACD={macd_current_us30:.2f}, Signal={signal_current_us30:.2f})."
+def analyze(symbol, data):
+    close = data["Close"]
+    rsi = calculate_rsi(close)
+    macd_line, signal_line = calculate_macd(close)
+
+    rsi_current = float(rsi.iloc[-1])
+    macd_current = float(macd_line.iloc[-1])
+    signal_current = float(signal_line.iloc[-1])
+    prev_macd = float(macd_line.iloc[-2])
+    prev_signal = float(signal_line.iloc[-2])
+
+    # RSI analiza
+    if rsi_current > 70:
+        rsi_desc = "wykupiony"
+    elif rsi_current < 30:
+        rsi_desc = "wyprzedany"
     else:
-        analysis_us30 += f"MACD below Signal (MACD={macd_current_us30:.2f}, Signal={signal_current_us30:.2f})."
+        rsi_desc = "neutralny"
 
-# Calculate RSI and MACD for DAX
-close_dax = data_dax["Close"]
-# RSI 14-dniowy
-delta_dax = close_dax.diff()
-up_dax = delta_dax.clip(lower=0)
-down_dax = -delta_dax.clip(upper=0)
-avg_gain_dax = up_dax.rolling(window=14).mean()
-avg_loss_dax = down_dax.rolling(window=14).mean()
-rs_dax = avg_gain_dax / avg_loss_dax
-rsi_dax = 100 - (100 / (1 + rs_dax))
-# MACD (12, 26, 9)
-ema12_dax = close_dax.ewm(span=12, adjust=False).mean()
-ema26_dax = close_dax.ewm(span=26, adjust=False).mean()
-macd_line_dax = ema12_dax - ema26_dax
-signal_line_dax = macd_line_dax.ewm(span=9, adjust=False).mean()
-hist_dax = macd_line_dax - signal_line_dax
-
-# Extract current indicator values (as floats)
-rsi_current_dax = float(rsi_dax.iloc[-1])
-macd_current_dax = float(macd_line_dax.iloc[-1])
-signal_current_dax = float(signal_line_dax.iloc[-1])
-prev_macd_dax = float(macd_line_dax.iloc[-2])
-prev_signal_dax = float(signal_line_dax.iloc[-2])
-
-# Analyze DAX indicators
-analysis_dax = "DAX (Germany 40): "
-if rsi_current_dax > 70:
-    analysis_dax += f"RSI={rsi_current_dax:.2f} (overbought). "
-elif rsi_current_dax < 30:
-    analysis_dax += f"RSI={rsi_current_dax:.2f} (oversold). "
-else:
-    analysis_dax += f"RSI={rsi_current_dax:.2f}. "
-if macd_current_dax > signal_current_dax and prev_macd_dax < prev_signal_dax:
-    analysis_dax += f"MACD bullish crossover (MACD={macd_current_dax:.2f}, Signal={signal_current_dax:.2f})."
-elif macd_current_dax < signal_current_dax and prev_macd_dax > prev_signal_dax:
-    analysis_dax += f"MACD bearish crossover (MACD={macd_current_dax:.2f}, Signal={signal_current_dax:.2f})."
-else:
-    if macd_current_dax > signal_current_dax:
-        analysis_dax += f"MACD above Signal (MACD={macd_current_dax:.2f}, Signal={signal_current_dax:.2f})."
+    # MACD analiza
+    if macd_current > signal_current and prev_macd <= prev_signal:
+        macd_desc = "MACD przecięło sygnał w górę (sygnał kupna)"
+    elif macd_current < signal_current and prev_macd >= prev_signal:
+        macd_desc = "MACD przecięło sygnał w dół (sygnał sprzedaży)"
+    elif macd_current > signal_current:
+        macd_desc = "MACD powyżej linii sygnału (sygnał wzrostowy)"
     else:
-        analysis_dax += f"MACD below Signal (MACD={macd_current_dax:.2f}, Signal={signal_current_dax:.2f})."
+        macd_desc = "MACD poniżej linii sygnału (sygnał spadkowy)"
 
-# Combine analyses and send via Telegram
-analysis_message = analysis_us30 + "\n" + analysis_dax
-url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    # Sugestia
+    if rsi_current < 30 or (macd_current > signal_current and prev_macd <= prev_signal):
+        suggestion = "zaraz kup"
+    elif rsi_current > 70 or (macd_current < signal_current and prev_macd >= prev_signal):
+        suggestion = "zaraz sprzedaj"
+    else:
+        suggestion = "obserwuj"
+
+    # Bieżąca cena zamknięcia
+    last_price = float(close.iloc[-1])
+
+    analysis_text = (
+        f"{symbol}:\n"
+        f"Cena zamknięcia: {last_price:.2f} pkt\n"
+        f"RSI (14): {rsi_current:.2f} ({rsi_desc})\n"
+        f"MACD (12, 26, 9): {macd_current:.2f}, sygnał: {signal_current:.2f} ({macd_desc})\n"
+        f"Sugestia: {suggestion}"
+    )
+    return analysis_text
+
+# Analiza dla US30 i DAX
+analysis_us30 = analyze("US30 (Dow Jones)", data_us30)
+analysis_dax = analyze("DAX (Germany 40)", data_dax)
+
+# Połącz analizy w jedną wiadomość
+analysis_message = analysis_us30 + "\n\n" + analysis_dax
+
+# Wyślij wiadomość na Telegram
+url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
 payload = {"chat_id": CHAT_ID, "text": analysis_message}
-requests.post(url, data=payload)
+
+try:
+    response = requests.post(url, data=payload)
+    response.raise_for_status()
+    print("Wiadomość wysłana pomyślnie!")
+except requests.exceptions.RequestException as e:
+    print(f"Błąd przy wysyłaniu wiadomości Telegram: {e}")
