@@ -49,10 +49,18 @@ def analyze_trend(symbol, data):
 
         # Warunki zmiany trendu
         trend_signal = ""
-        if rsi_current < 30 and macd_current > signal_current and prev_macd <= prev_signal:
-            trend_signal = "Potencjalna zmiana trendu: sygnał kupna!"
-        elif rsi_current > 70 and macd_current < signal_current and prev_macd >= prev_signal:
-            trend_signal = "Potencjalna zmiana trendu: sygnał sprzedaży!"
+
+        # Sygnał kupna: RSI < 30 lub MACD przecina sygnał od dołu
+        if rsi_current < 30:
+            trend_signal = "Potencjalny sygnał kupna: RSI wyprzedany!"
+        elif macd_current > signal_current and prev_macd <= prev_signal:
+            trend_signal = "Potencjalny sygnał kupna: MACD przecięło sygnał w górę!"
+
+        # Sygnał sprzedaży: RSI > 70 lub MACD przecina sygnał od góry
+        elif rsi_current > 70:
+            trend_signal = "Potencjalny sygnał sprzedaży: RSI wykupiony!"
+        elif macd_current < signal_current and prev_macd >= prev_signal:
+            trend_signal = "Potencjalny sygnał sprzedaży: MACD przecięło sygnał w dół!"
 
         # Tworzenie tekstu analizy
         if trend_signal:
@@ -64,11 +72,12 @@ def analyze_trend(symbol, data):
             )
             return analysis_text
         else:
-            print(f"Brak zmiany trendu dla {symbol}.")
+            print(f"Brak wyraźnego sygnału zmiany trendu dla {symbol}.")
     except Exception as e:
         print(f"Błąd podczas analizy trendu dla {symbol}: {e}")
 
     return None
+
 
 # Sprawdzenie pobrania danych
 print("Pobieram dane z Yahoo Finance...")
