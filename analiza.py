@@ -3,8 +3,8 @@ import pandas as pd
 import requests
 
 # Konfiguracja Telegram
-TOKEN = "TUJ_TOKEN_TUTAJ"       # <-- Wstaw tutaj token swojego bota Telegram
-CHAT_ID = "TWOJE_CHAT_ID"       # <-- Wstaw tutaj ID czatu (np. ID swojego konta)
+TOKEN = "8170414773:AAGpuW4PUBJNcbkarA8x-P6D6I3_ke9XcOU"  # Token bota
+CHAT_ID = "-1002655090041"  # ID czatu
 
 # Pobierz dane z Yahoo Finance
 symbols = {
@@ -32,12 +32,12 @@ for name, symbol in symbols.items():
     avg_loss = down.rolling(window).mean()
     rs = avg_gain / avg_loss
     rsi = 100 - (100 / (1 + rs))
-    rsi_current = rsi.iloc[-1]
+    rsi_current = rsi.iloc[-1]  # Wyciągnięcie ostatniej wartości RSI jako liczby
 
     # Opis RSI
-    if rsi_current > 70:
+    if float(rsi_current) > 70:
         rsi_desc = "wykupiony"
-    elif rsi_current < 30:
+    elif float(rsi_current) < 30:
         rsi_desc = "wyprzedany"
     else:
         rsi_desc = "neutralny"
@@ -51,15 +51,10 @@ for name, symbol in symbols.items():
     signal_current = signal_line.iloc[-1]
 
     # Interpretacja MACD
-    # Sprawdź przecięcie (poprzednia sesja vs ostatnia)
     macd_desc = ""
     if len(macd_line) > 1:
         prev_macd = macd_line.iloc[-2]
         prev_signal = signal_line.iloc[-2]
-    else:
-        prev_macd = prev_signal = None
-
-    if prev_macd is not None:
         if macd_current > signal_current and prev_macd <= prev_signal:
             macd_desc = "MACD przeciął sygnał w górę (sygnał kupna)"
         elif macd_current < signal_current and prev_macd >= prev_signal:
@@ -70,15 +65,14 @@ for name, symbol in symbols.items():
             else:
                 macd_desc = "MACD poniżej linii sygnału (sygnał spadkowy)"
     else:
-        # Brak poprzedniego punktu do porównania
         if macd_current > signal_current:
             macd_desc = "MACD powyżej linii sygnału (sygnał wzrostowy)"
         else:
             macd_desc = "MACD poniżej linii sygnału (sygnał spadkowy)"
 
     # Sugestia
-    bull_condition = (rsi_current < 30) or (prev_macd is not None and macd_current > signal_current and prev_macd <= prev_signal)
-    bear_condition = (rsi_current > 70) or (prev_macd is not None and macd_current < signal_current and prev_macd >= prev_signal)
+    bull_condition = (rsi_current < 30) or (macd_current > signal_current)
+    bear_condition = (rsi_current > 70) or (macd_current < signal_current)
     if bull_condition and not bear_condition:
         suggestion = "zaraz kup"
     elif bear_condition and not bull_condition:
@@ -108,5 +102,6 @@ payload = {"chat_id": CHAT_ID, "text": message}
 try:
     response = requests.post(url, data=payload)
     response.raise_for_status()
+    print("Wiadomość wysłana pomyślnie!")
 except requests.exceptions.RequestException as e:
     print(f"Błąd przy wysyłaniu wiadomości Telegram: {e}")
