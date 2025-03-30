@@ -113,17 +113,19 @@ try:
 except requests.RequestException as e:
     print(f"Błąd wysyłania wiadomości testowej: {e}")
 
-# Wysyłanie analizy (jeśli wykryto zmianę trendu)
+# Wysyłanie analizy (nawet jeśli brak zmiany trendu)
 if analysis_messages:
     print("Przygotowuję wiadomość z analizą...")
     message = "\n\n".join(analysis_messages)
-    print(f"Treść wiadomości:\n{message}")
-
-    try:
-        response = requests.post(url, data={"chat_id": CHAT_ID, "text": message})
-        response.raise_for_status()
-        print("Wiadomość z analizą wysłana pomyślnie!")
-    except requests.RequestException as e:
-        print(f"Błąd wysyłania wiadomości z analizą: {e}")
 else:
-    print("Brak wykrytych sygnałów do wysłania.")
+    print("Brak zmiany trendu - wysyłka testowa")
+    message = "Testowa wiadomość: brak zmiany trendu, ale wysyłam, by sprawdzić logikę."
+
+print(f"Treść wiadomości:\n{message}")
+
+try:
+    response = requests.post(url, data={"chat_id": CHAT_ID, "text": message})
+    response.raise_for_status()
+    print("Wiadomość wysłana pomyślnie!")
+except requests.RequestException as e:
+    print(f"Błąd wysyłania wiadomości: {e}")
