@@ -36,31 +36,39 @@ def analyze_trend(symbol, data):
     rsi = calculate_rsi(close)
     macd_line, signal_line = calculate_macd(close)
 
-    rsi_current = float(rsi.iloc[-1])
-    macd_current = float(macd_line.iloc[-1])
-    signal_current = float(signal_line.iloc[-1])
-    prev_macd = float(macd_line.iloc[-2])
-    prev_signal = float(signal_line.iloc[-2])
+    try:
+        rsi_current = float(rsi.iloc[-1].item())
+        macd_current = float(macd_line.iloc[-1].item())
+        signal_current = float(signal_line.iloc[-1].item())
+        prev_macd = float(macd_line.iloc[-2].item())
+        prev_signal = float(signal_line.iloc[-2].item())
 
-    # Warunki zmiany trendu
-    trend_signal = ""
-    if rsi_current < 30 and macd_current > signal_current and prev_macd <= prev_signal:
-        trend_signal = "Potencjalna zmiana trendu: sygnał kupna!"
-    elif rsi_current > 70 and macd_current < signal_current and prev_macd >= prev_signal:
-        trend_signal = "Potencjalna zmiana trendu: sygnał sprzedaży!"
+        print(f"{symbol} - Ostatnia cena zamknięcia: {close.iloc[-1]}")
+        print(f"RSI: {rsi_current}, MACD: {macd_current}, Signal: {signal_current}")
+        print(f"Poprzedni MACD: {prev_macd}, Poprzedni sygnał: {prev_signal}")
 
-    # Tworzenie tekstu analizy
-    if trend_signal:
-        analysis_text = (
-            f"Zmiana trendu na {symbol} (5m interwał):\n"
-            f"RSI (5m): {rsi_current:.2f}\n"
-            f"MACD: {macd_current:.2f}, Sygnał: {signal_current:.2f}\n"
-            f"{trend_signal}"
-        )
-        return analysis_text
+        # Warunki zmiany trendu
+        trend_signal = ""
+        if rsi_current < 30 and macd_current > signal_current and prev_macd <= prev_signal:
+            trend_signal = "Potencjalna zmiana trendu: sygnał kupna!"
+        elif rsi_current > 70 and macd_current < signal_current and prev_macd >= prev_signal:
+            trend_signal = "Potencjalna zmiana trendu: sygnał sprzedaży!"
+
+        # Tworzenie tekstu analizy
+        if trend_signal:
+            analysis_text = (
+                f"Zmiana trendu na {symbol} (5m interwał):\n"
+                f"RSI (5m): {rsi_current:.2f}\n"
+                f"MACD: {macd_current:.2f}, Sygnał: {signal_current:.2f}\n"
+                f"{trend_signal}"
+            )
+            return analysis_text
+        else:
+            print(f"Brak zmiany trendu dla {symbol}.")
+    except Exception as e:
+        print(f"Błąd podczas analizy trendu dla {symbol}: {e}")
+
     return None
-# Sprawdzenie pobrania danych
-print("Pobieram dane z Yahoo Finance...")
 
 # Sprawdzenie pobrania danych
 print("Pobieram dane z Yahoo Finance...")
@@ -71,21 +79,18 @@ for name, ticker in symbols.items():
     try:
         print(f"Pobieram dane dla {name} ({ticker}) z Yahoo Finance...")
         data = yf.download(ticker, period=lookback, interval=interval)
-        print(f"Dane pobrane dla {name}:")
-        print(data.tail())  # Wyświetl ostatnie wiersze danych
         
         if data is None or data.empty:
             print(f"Brak danych dla {name}!")
             continue
 
-        # Testowy wydruk cen
-        try:
-            last_price = data['Close'].iloc[-1]
-            print(f"Ostatnia cena zamknięcia dla {name}: {last_price}")
-        except Exception as e:
-            print(f"Błąd przy odczycie ceny zamknięcia dla {name}: {e}")
-            continue
-        
+        print(f"Dane pobrane dla {name}:")
+        print(data.tail())  # Wyświetl ostatnie wiersze danych
+
+        # Ostatnia cena zamknięcia
+        last_price = data['Close'].iloc[-1]
+        print(f"Ostatnia cena zamknięcia dla {name}: {last_price}")
+
         analysis = analyze_trend(name, data)
         if analysis:
             print(f"Wykryto zmianę trendu dla {name}!")
@@ -94,3 +99,31 @@ for name, ticker in symbols.items():
             print(f"Brak zmiany trendu dla {name}.")
     except Exception as e:
         print(f"Błąd podczas pobierania danych dla {name}: {e}")
+
+# Test ręcznej wysyłki wiadomości bez względu na analizę
+print("Przygotowuję wiadomość do wysłania (nawet jeśli brak analizy)...")
+test_message = "Test wysyłki wiadomości bez względu na analizę."
+url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+payload = {"chat_id": CHAT_ID, "text": test_message}
+
+try:
+    response = requests.post(url, data=payload)
+    response.raise_for_status()
+    print("Wiadomość testowa wysłana przed analizą!")
+except requests.RequestException as e:
+    print(f"Błąd wysyłania wiadomości testowej: {e}")
+
+# Wysyłanie analizy (jeśli wykryto zmianę trendu)
+if analysis_messages:
+    print("Przygotowuję wiadomość z analizą...")
+    message = "\n\n".join(analysis_messages)
+    print(f"Treść wiadomości:\n{message}")
+
+    try:
+        response = requests.post(url, data={"chat_id": CHAT_ID, "text": message})
+        response.raise_for_status()
+        print("Wiadomość z analizą wysłana pomyślnie!")
+    except requests.RequestException as e:
+        print(f"Błąd wysyłania wiadomości z analizą: {e}")
+else:
+    print("Brak wykrytych sygnałów do wysłania.")
