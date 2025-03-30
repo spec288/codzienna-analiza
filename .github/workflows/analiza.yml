@@ -2,7 +2,7 @@ name: Analiza trendu US30 i DAX
 
 on:
   schedule:
-    - cron: "*/5 * * * *"  # Uruchamianie co 5 minut
+    - cron: "*/1 * * * *"  # Uruchamianie co minutę
   workflow_dispatch:
 
 jobs:
