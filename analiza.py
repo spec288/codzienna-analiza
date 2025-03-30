@@ -78,7 +78,6 @@ def analyze_trend(symbol, data):
 
     return None
 
-
 # Sprawdzenie pobrania danych
 print("Pobieram dane z Yahoo Finance...")
 
@@ -109,7 +108,7 @@ for name, ticker in symbols.items():
     except Exception as e:
         print(f"Błąd podczas pobierania danych dla {name}: {e}")
 
-# Test ręcznej wysyłki wiadomości bez względu na analizę
+# Test wysyłki wiadomości przed analizą
 print("Przygotowuję wiadomość do wysłania (nawet jeśli brak analizy)...")
 test_message = "Test wysyłki wiadomości bez względu na analizę."
 url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
