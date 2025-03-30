@@ -1,28 +1,25 @@
-name: Daily Analysis
+name: Analiza trendu US30 i DAX
 
 on:
   schedule:
-    - cron: "0 6 * * *"  # Codziennie o 6:00 (czas UTC)
+    - cron: "*/5 * * * *"  # Uruchamianie co 5 minut
   workflow_dispatch:
 
 jobs:
-  send-analysis:
+  run-analysis:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+    - name: Checkout repozytorium
+      uses: actions/checkout@v3
 
-      - name: Setup Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
+    - name: Ustawienie Pythona
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.x"
 
-      - name: Install dependencies
-        run: |
-          pip install yfinance python-telegram-bot
+    - name: Instalacja wymaganych bibliotek
+      run: pip install yfinance requests pandas
 
-      - name: Run script
-        env:
-          TOKEN_TELEGRAM: ${{ secrets.TOKEN_TELEGRAM }}
-          ID_CZATU: ${{ secrets.ID_CZATU }}
-        run: python analiza.py
+    - name: Uruchomienie skryptu analizy
+      run: python3 analiza.py
