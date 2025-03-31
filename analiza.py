@@ -16,7 +16,7 @@ SYMBOLS = {
     "DAX (Germany 40)": "^GDAXI"
 }
 INTERVAL = '5m'
-LOOKBACK_DAYS = 3  # Używamy zmiennej, aby ułatwić modyfikację zakresu
+LOOKBACK_DAYS = 3  # Możesz zmienić zakres pobieranych danych
 
 # Konfiguracja logowania
 logging.basicConfig(
@@ -55,17 +55,27 @@ class AdvancedMarketAnalyzer:
         return True
 
     def _preprocess_data(self):
-        # Sprawdzamy, czy mamy wystarczającą liczbę danych do zastosowania filtru Savitzky-Golay
-        required_window = 21
-        if len(self.data) >= required_window:
+        # Dynamiczne dostosowanie długości okna dla filtra Savitzky-Golay
+        max_window = 21
+        min_window = 5
+        available_points = len(self.data)
+        window_length = min(max_window, available_points)
+
+        if window_length >= min_window:
             try:
-                self.data['Smooth_Close'] = savgol_filter(self.data['Close'], required_window, 3)
+                self.data['Smooth_Close'] = savgol_filter(
+                    self.data['Close'], 
+                    window_length, 
+                    3, 
+                    mode='nearest'
+                )
+                logging.info(f"Zastosowano savgol_filter z oknem: {window_length}")
             except Exception as e:
                 logging.warning(f"Błąd filtru Savitzky-Golay dla {self.symbol}: {str(e)}")
                 self.data['Smooth_Close'] = self.data['Close']
         else:
             self.data['Smooth_Close'] = self.data['Close']
-            logging.warning(f"Za mało danych ({len(self.data)} punktów) do filtru S-G dla {self.symbol}. Używamy oryginalnych wartości Close.")
+            logging.warning(f"Za mało danych ({available_points} punktów) do filtra S-G dla {self.symbol}. Używamy wartości Close.")
         
         # Obliczanie zmienności – wypełniamy wartości NaN zerami
         self.data['Volatility'] = self.data['Close'].pct_change().rolling(14).std().fillna(0)
