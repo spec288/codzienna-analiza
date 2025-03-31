@@ -1,164 +1,231 @@
 import yfinance as yf
 import pandas as pd
+import numpy as np
 import requests
-import json
-import asyncio
-import time
+from scipy.signal import savgol_filter, argrelextrema
+from statsmodels.tsa.arima.model import ARIMA
+from sklearn.preprocessing import MinMaxScaler
+import logging
+from datetime import datetime, timedelta
 
-# Konfiguracja Telegrama
+# Konfiguracja
 TOKEN = "8170414773:AAGpuW4PUBJNcbkarA8x-P6D6I3_ke9XcOU"
-CHAT_ID = "-1002655090041"  # Format ID czatu jest poprawny
-
-# Funkcja testowa sprawdzająca poprawność konfiguracji bota
-def test_telegram_connection():
-    url = f"https://api.telegram.org/bot{TOKEN}/getMe"
-    try:
-        response = requests.get(url)
-        response.raise_for_status()
-        print(f"Połączenie z botem działa poprawnie: {response.json()}")
-        
-        # Sprawdźmy, czy możemy wysłać wiadomość testową
-        test_url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-        test_payload = {
-            "chat_id": CHAT_ID,
-            "text": "Test połączenia - wiadomość diagnostyczna"
-        }
-        test_response = requests.post(test_url, json=test_payload)
-        test_response.raise_for_status()
-        print(f"Wiadomość testowa wysłana pomyślnie: {test_response.json()}")
-        return True
-    except requests.RequestException as e:
-        print(f"Błąd podczas testowania połączenia z Telegram: {e}")
-        if hasattr(e, 'response') and e.response is not None:
-            print(f"Kod odpowiedzi: {e.response.status_code}")
-            print(f"Treść odpowiedzi: {e.response.text}")
-        return False
-
-# Parametry analizy
-symbols = {
+CHAT_ID = "-1002655090041"
+SYMBOLS = {
     "US30 (Dow Jones)": "^DJI",
     "DAX (Germany 40)": "^GDAXI"
 }
-interval = "5m"
-lookback = "2d"
+INTERVAL = '5m'
+LOOKBACK = '3d'
 
-# Obliczanie wskaźników - funkcje są poprawne, bez zmian
-def calculate_rsi(data, window=9):
-    delta = data.diff()
-    up = delta.clip(lower=0)
-    down = -delta.clip(upper=0)
-    avg_gain = up.rolling(window).mean()
-    avg_loss = down.rolling(window).mean()
-    rs = avg_gain / avg_loss
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
+# Konfiguracja logowania
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    handlers=[
+        logging.FileHandler('trend_analysis.log'),
+        logging.StreamHandler()
+    ]
+)
 
-def calculate_macd(data):
-    ema5 = data.ewm(span=5, adjust=False).mean()
-    ema13 = data.ewm(span=13, adjust=False).mean()
-    macd_line = ema5 - ema13
-    signal_line = macd_line.ewm(span=4, adjust=False).mean()
-    return macd_line, signal_line
-
-def calculate_ema(data, period):
-    return data.ewm(span=period, adjust=False).mean()
-
-def calculate_stochastic_rsi(data, window=9):
-    min_val = data.rolling(window).min()
-    max_val = data.rolling(window).max()
-    stochastic_rsi = 100 * (data - min_val) / (max_val - min_val)
-    return stochastic_rsi
-
-def analyze_trend(symbol, data):
-    close = data["Close"]
-    rsi = calculate_rsi(close)
-    macd_line, signal_line = calculate_macd(close)
-    ema20 = calculate_ema(close, 20)
-    ema50 = calculate_ema(close, 50)
-    stochastic_rsi = calculate_stochastic_rsi(rsi)
-
-    try:
-        rsi_current = rsi.iloc[-1]
-        macd_current = macd_line.iloc[-1]
-        signal_current = signal_line.iloc[-1]
-        ema20_current = ema20.iloc[-1]
-        ema50_current = ema50.iloc[-1]
-        stoch_rsi_current = stochastic_rsi.iloc[-1]
-
-        trend_signal = ""
-        if (rsi_current < 30 or stoch_rsi_current < 20 or (macd_current > signal_current)) and ema20_current > ema50_current:
-            trend_signal = "Potencjalny sygnał kupna!"
-        elif (rsi_current > 70 or stoch_rsi_current > 80 or (macd_current < signal_current)) and ema20_current < ema50_current:
-            trend_signal = "Potencjalny sygnał sprzedaży!"
-
-        if trend_signal:
-            analysis_text = (
-                f"Zmiana trendu na {symbol} (5m interwał):\n"
-                f"Cena: {close.iloc[-1]:.2f}\n"
-                f"RSI: {rsi_current:.2f}\n"
-                f"Stochastic RSI: {stoch_rsi_current:.2f}\n"
-                f"MACD: {macd_current:.2f}, Sygnał: {signal_current:.2f}\n"
-                f"EMA20: {ema20_current:.2f}, EMA50: {ema50_current:.2f}\n"
-                f"{trend_signal}"
-            )
-            return analysis_text
-    except Exception as e:
-        print(f"Błąd podczas analizy trendu dla {symbol}: {e}")
-
-    return None
-
-# Funkcja do wysyłania wiadomości przez Telegram - poprawiona
-def send_telegram_message(message):
-    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
-    payload = {
-        "chat_id": CHAT_ID,
-        "text": message,
-        "parse_mode": "HTML"  # Opcjonalnie używamy HTML do formatowania
-    }
-
-    try:
-        # Używamy json zamiast data dla lepszej obsługi specjalnych znaków
-        response = requests.post(url, json=payload)
-        response.raise_for_status()
-        print(f"Wiadomość wysłana pomyślnie! Odpowiedź: {response.json()}")
-        return True
-    except requests.RequestException as e:
-        print(f"Błąd wysyłania wiadomości: {e}")
-        if hasattr(e, 'response') and e.response is not None:
-            print(f"Kod odpowiedzi: {e.response.status_code}")
-            print(f"Treść odpowiedzi: {e.response.text}")
-        return False
-
-# Główna funkcja programu
-def main():
-    # Najpierw testujemy połączenie z Telegram
-    if not test_telegram_connection():
-        print("Test połączenia z Telegram nie powiódł się. Przerwanie wykonania.")
-        return
-
-    analysis_messages = []
-    for name, ticker in symbols.items():
+class AdvancedMarketAnalyzer:
+    def __init__(self, symbol, ticker):
+        self.symbol = symbol
+        self.ticker = ticker
+        self.data = None
+        self.indicators = {}
+        
+    def fetch_data(self):
         try:
-            data = yf.download(ticker, period=lookback, interval=interval)
-            if data.empty:
-                message = f"Błąd: brak danych dla {name}."
-                send_telegram_message(message)
-                continue
-            
-            analysis = analyze_trend(name, data)
-            if analysis:
-                analysis_messages.append(analysis)
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=3)
+            self.data = yf.download(
+                self.ticker,
+                start=start_date,
+                end=end_date,
+                interval=INTERVAL,
+                progress=False
+            )
+            if self.data.empty:
+                raise ValueError("Brak danych z Yahoo Finance")
+            self._preprocess_data()
         except Exception as e:
-            print(f"Błąd podczas pobierania danych dla {name}: {e}")
+            logging.error(f"Błąd pobierania danych dla {self.symbol}: {str(e)}")
+            return False
+        return True
 
-    if analysis_messages:
-        message = "\n\n".join(analysis_messages)
-    else:
-        message = "Brak sygnałów zmiany trendu - monitoring ciągły."
+    def _preprocess_data(self):
+        # Filtracja szumów
+        self.data['Smooth_Close'] = savgol_filter(self.data['Close'], 21, 3)
+        
+        # Obliczanie zmienności
+        self.data['Volatility'] = self.data['Close'].pct_change().rolling(14).std()
+        
+        # Normalizacja wolumenu
+        volume_scaler = MinMaxScaler(feature_range=(0, 1))
+        self.data['Norm_Volume'] = volume_scaler.fit_transform(self.data[['Volume']])
 
-    # Wysyłamy zbiorczą wiadomość
-    send_telegram_message(message)
+    def calculate_adaptive_indicators(self):
+        # Dynamiczne RSI
+        rsi_period = max(9, int(14 * (1 - self.data['Volatility'].iloc[-1])))
+        self.data['RSI'] = self._calculate_rsi(self.data['Close'], rsi_period)
+        
+        # Adaptacyjne progi
+        self.data['RSI_Low'] = 35 - (self.data['Volatility'] * 100).clip(0, 15)
+        self.data['RSI_High'] = 65 + (self.data['Volatility'] * 100).clip(0, 15)
+        
+        # MACD z dynamicznymi okresami
+        fast = int(12 * (1 + self.data['Volatility'].iloc[-1]))
+        slow = int(26 * (1 + self.data['Volatility'].iloc[-1]))
+        self.data['MACD'] = self.data['Close'].ewm(span=fast).mean() - self.data['Close'].ewm(span=slow).mean()
+        self.data['Signal'] = self.data['MACD'].ewm(span=9).mean()
+        
+        # Wykrywanie formacji cenowych
+        self._detect_price_patterns()
+        
+        # Predykcja ARIMA
+        self._calculate_arima_forecast()
 
-# Uruchamiamy program
+    def _calculate_rsi(self, series, period):
+        delta = series.diff()
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+        
+        avg_gain = gain.ewm(alpha=1/period).mean()
+        avg_loss = loss.ewm(alpha=1/period).mean()
+        
+        rs = avg_gain / avg_loss
+        return 100 - (100 / (1 + rs))
+
+    def _detect_price_patterns(self):
+        max_idx = argrelextrema(self.data['Smooth_Close'].values, np.greater)[0]
+        min_idx = argrelextrema(self.data['Smooth_Close'].values, np.less)[0]
+        
+        self.data['Higher_High'] = False
+        self.data['Lower_Low'] = False
+        
+        for i in range(1, len(max_idx)):
+            if self.data.iloc[max_idx[i]]['Smooth_Close'] > self.data.iloc[max_idx[i-1]]['Smooth_Close']:
+                self.data.at[self.data.index[max_idx[i]], 'Higher_High'] = True
+                
+        for i in range(1, len(min_idx)):
+            if self.data.iloc[min_idx[i]]['Smooth_Close'] < self.data.iloc[min_idx[i-1]]['Smooth_Close']:
+                self.data.at[self.data.index[min_idx[i]], 'Lower_Low'] = True
+
+    def _calculate_arima_forecast(self):
+        try:
+            model = ARIMA(self.data['Close'].dropna(), order=(2,1,2))
+            results = model.fit()
+            forecast = results.get_forecast(steps=3)
+            self.indicators['ARIMA_Forecast'] = forecast.predicted_mean.values
+        except Exception as e:
+            logging.warning(f"Błąd ARIMA: {str(e)}")
+            self.indicators['ARIMA_Forecast'] = None
+
+    def analyze_trend(self):
+        current = self.data.iloc[-1]
+        signals = []
+        
+        # System scoringowy
+        score = 0
+        
+        # 1. Analiza RSI
+        if current['RSI'] < current['RSI_Low']:
+            score += 2
+            signals.append('RSI wskazuje wykupienie')
+        elif current['RSI'] > current['RSI_High']:
+            score -= 2
+            signals.append('RSI wskazuje wyprzedanie')
+            
+        # 2. MACD
+        if current['MACD'] > current['Signal']:
+            score += 1.5
+            signals.append('MACD dodatni')
+        else:
+            score -= 1.5
+            signals.append('MACD ujemny')
+            
+        # 3. Formacje cenowe
+        if current['Higher_High']:
+            score += 2
+            signals.append('Wyższy szczyt')
+        if current['Lower_Low']:
+            score -= 2
+            signals.append('Niższy dołek')
+            
+        # 4. Predykcja ARIMA
+        if self.indicators['ARIMA_Forecast'] is not None:
+            if self.indicators['ARIMA_Forecast'].mean() > current['Close']:
+                score += 1.5
+                signals.append('Prognoza wzrostowa')
+            else:
+                score -= 1.5
+                signals.append('Prognoza spadkowa')
+                
+        # 5. Analiza wolumenu
+        if current['Norm_Volume'] > 0.8:
+            score += 1.2
+            signals.append('Wysoki wolumen')
+        elif current['Norm_Volume'] < 0.2:
+            score -= 1
+            signals.append('Niski wolumen')
+            
+        # Generowanie sygnału
+        if score >= 6 and current['Norm_Volume'] > 0.7:
+            return "SILNY SYGNAŁ KUPNA", signals
+        elif score <= -6 and current['Norm_Volume'] > 0.7:
+            return "SILNY SYGNAŁ SPRZEDAŻY", signals
+        elif score >= 4:
+            return "Sygnał kupna", signals
+        elif score <= -4:
+            return "Sygnał sprzedaży", signals
+        else:
+            return "Brak wyraźnego sygnału", []
+
+class TelegramNotifier:
+    def __init__(self, token, chat_id):
+        self.base_url = f"https://api.telegram.org/bot{token}"
+        self.chat_id = chat_id
+        
+    def send_message(self, message, symbol=None):
+        try:
+            payload = {
+                'chat_id': self.chat_id,
+                'text': message,
+                'parse_mode': 'HTML'
+            }
+            response = requests.post(f"{self.base_url}/sendMessage", json=payload)
+            response.raise_for_status()
+            return True
+        except Exception as e:
+            logging.error(f"Błąd wysyłania wiadomości: {str(e)}")
+            return False
+
+def main():
+    notifier = TelegramNotifier(TOKEN, CHAT_ID)
+    
+    for symbol, ticker in SYMBOLS.items():
+        analyzer = AdvancedMarketAnalyzer(symbol, ticker)
+        if not analyzer.fetch_data():
+            continue
+            
+        analyzer.calculate_adaptive_indicators()
+        signal, details = analyzer.analyze_trend()
+        
+        if "Brak" not in signal:
+            current_price = analyzer.data['Close'].iloc[-1]
+            message = [
+                f"<b>{symbol} - {signal}</b>",
+                f"Cena: {current_price:.2f}",
+                f"Wykryte sygnały:",
+                *details,
+                f"Wolumen: {analyzer.data['Volume'].iloc[-1]:,.0f}",
+                f"Zmienność: {analyzer.data['Volatility'].iloc[-1]*100:.2f}%"
+            ]
+            notifier.send_message("\n".join(message))
+        else:
+            logging.info(f"{symbol}: Brak istotnych sygnałów")
+
 if __name__ == "__main__":
     main()
+            
