@@ -55,28 +55,42 @@ class AdvancedMarketAnalyzer:
         return True
 
     def _preprocess_data(self):
-        # Filtracja szumów
-        self.data['Smooth_Close'] = savgol_filter(self.data['Close'], 21, 3)
+        # Filtracja szumów - sprawdzenie, czy ilość danych jest wystarczająca
+        if len(self.data) >= 21:
+            try:
+                self.data['Smooth_Close'] = savgol_filter(self.data['Close'], 21, 3)
+            except Exception as e:
+                logging.warning(f"Błąd filtru Savitzky-Golay dla {self.symbol}: {str(e)}")
+                self.data['Smooth_Close'] = self.data['Close']
+        else:
+            self.data['Smooth_Close'] = self.data['Close']
+            logging.warning(f"Niewystarczająca ilość danych do zastosowania savgol_filter dla {self.symbol}")
         
-        # Obliczanie zmienności
+        # Obliczanie zmienności – uzupełnienie braków wartości
         self.data['Volatility'] = self.data['Close'].pct_change().rolling(14).std()
+        self.data['Volatility'] = self.data['Volatility'].fillna(0)
         
-        # Normalizacja wolumenu
+        # Normalizacja wolumenu – uzupełnienie braków wartości w wolumenie
+        self.data['Volume'] = self.data['Volume'].fillna(0)
         volume_scaler = MinMaxScaler(feature_range=(0, 1))
         self.data['Norm_Volume'] = volume_scaler.fit_transform(self.data[['Volume']])
 
     def calculate_adaptive_indicators(self):
-        # Dynamiczne RSI
-        rsi_period = max(9, int(14 * (1 - self.data['Volatility'].iloc[-1])))
+        # Dynamiczne RSI – sprawdzenie wartości zmienności
+        last_volatility = self.data['Volatility'].iloc[-1]
+        if pd.isna(last_volatility) or last_volatility <= 0:
+            last_volatility = 0.1
+            logging.warning(f"Brak wartości zmienności dla {self.symbol}, używam wartości domyślnej 0.1")
+        rsi_period = max(9, int(14 * (1 - last_volatility)))
         self.data['RSI'] = self._calculate_rsi(self.data['Close'], rsi_period)
         
-        # Adaptacyjne progi
+        # Adaptacyjne progi RSI
         self.data['RSI_Low'] = 35 - (self.data['Volatility'] * 100).clip(0, 15)
         self.data['RSI_High'] = 65 + (self.data['Volatility'] * 100).clip(0, 15)
         
         # MACD z dynamicznymi okresami
-        fast = int(12 * (1 + self.data['Volatility'].iloc[-1]))
-        slow = int(26 * (1 + self.data['Volatility'].iloc[-1]))
+        fast = int(12 * (1 + last_volatility))
+        slow = int(26 * (1 + last_volatility))
         self.data['MACD'] = self.data['Close'].ewm(span=fast).mean() - self.data['Close'].ewm(span=slow).mean()
         self.data['Signal'] = self.data['MACD'].ewm(span=9).mean()
         
@@ -91,13 +105,22 @@ class AdvancedMarketAnalyzer:
         gain = delta.where(delta > 0, 0)
         loss = -delta.where(delta < 0, 0)
         
-        avg_gain = gain.ewm(alpha=1/period).mean()
-        avg_loss = loss.ewm(alpha=1/period).mean()
+        avg_gain = gain.ewm(alpha=1/period, min_periods=period).mean()
+        avg_loss = loss.ewm(alpha=1/period, min_periods=period).mean()
         
         rs = avg_gain / avg_loss
-        return 100 - (100 / (1 + rs))
+        rsi = 100 - (100 / (1 + rs))
+        # Wypełnienie NaN neutralną wartością 50
+        return rsi.fillna(50)
 
     def _detect_price_patterns(self):
+        # Sprawdzenie, czy mamy wystarczającą ilość danych
+        if 'Smooth_Close' not in self.data.columns or len(self.data['Smooth_Close']) < 3:
+            logging.warning(f"Za mało danych do wykrycia formacji cenowych dla {self.symbol}")
+            self.data['Higher_High'] = False
+            self.data['Lower_Low'] = False
+            return
+        
         max_idx = argrelextrema(self.data['Smooth_Close'].values, np.greater)[0]
         min_idx = argrelextrema(self.data['Smooth_Close'].values, np.less)[0]
         
@@ -114,19 +137,20 @@ class AdvancedMarketAnalyzer:
 
     def _calculate_arima_forecast(self):
         try:
-            model = ARIMA(self.data['Close'].dropna(), order=(2,1,2))
+            # Sprawdzamy, czy mamy wystarczającą liczbę danych do modelu ARIMA
+            if len(self.data['Close'].dropna()) < 30:
+                raise ValueError("Za mało danych do modelu ARIMA")
+            model = ARIMA(self.data['Close'].dropna(), order=(2, 1, 2))
             results = model.fit()
             forecast = results.get_forecast(steps=3)
             self.indicators['ARIMA_Forecast'] = forecast.predicted_mean.values
         except Exception as e:
-            logging.warning(f"Błąd ARIMA: {str(e)}")
+            logging.warning(f"Błąd ARIMA dla {self.symbol}: {str(e)}")
             self.indicators['ARIMA_Forecast'] = None
 
     def analyze_trend(self):
         current = self.data.iloc[-1]
         signals = []
-        
-        # System scoringowy
         score = 0
         
         # 1. Analiza RSI
@@ -146,15 +170,15 @@ class AdvancedMarketAnalyzer:
             signals.append('MACD ujemny')
             
         # 3. Formacje cenowe
-        if current['Higher_High']:
+        if current.get('Higher_High', False):
             score += 2
             signals.append('Wyższy szczyt')
-        if current['Lower_Low']:
+        if current.get('Lower_Low', False):
             score -= 2
             signals.append('Niższy dołek')
             
         # 4. Predykcja ARIMA
-        if self.indicators['ARIMA_Forecast'] is not None:
+        if self.indicators.get('ARIMA_Forecast') is not None:
             if self.indicators['ARIMA_Forecast'].mean() > current['Close']:
                 score += 1.5
                 signals.append('Prognoza wzrostowa')
@@ -170,7 +194,7 @@ class AdvancedMarketAnalyzer:
             score -= 1
             signals.append('Niski wolumen')
             
-        # Generowanie sygnału
+        # Generowanie sygnału na podstawie sumy punktów
         if score >= 6 and current['Norm_Volume'] > 0.7:
             return "SILNY SYGNAŁ KUPNA", signals
         elif score <= -6 and current['Norm_Volume'] > 0.7:
@@ -217,7 +241,7 @@ def main():
             message = [
                 f"<b>{symbol} - {signal}</b>",
                 f"Cena: {current_price:.2f}",
-                f"Wykryte sygnały:",
+                "Wykryte sygnały:",
                 *details,
                 f"Wolumen: {analyzer.data['Volume'].iloc[-1]:,.0f}",
                 f"Zmienność: {analyzer.data['Volatility'].iloc[-1]*100:.2f}%"
