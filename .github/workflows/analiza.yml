@@ -2,10 +2,8 @@ name: Codzienna analiza trendów
 
 on:
   schedule:
-    - cron: '*/5 * * * *' # Skrypt uruchamiany co 5 minut
-  push:
-    branches:
-      - main
+    - cron: '*/5 * * * *' # Automatyczne uruchamianie co 5 minut
+  workflow_dispatch: # Dodanie ręcznego uruchamiania
 
 jobs:
   build:
@@ -26,4 +24,5 @@ jobs:
         pip install scipy pandas numpy yfinance requests statsmodels scikit-learn
 
     - name: Uruchomienie skryptu analizy
-      run: python3 analiza.py
+      run: py analiza.py
+
