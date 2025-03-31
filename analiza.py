@@ -16,7 +16,7 @@ SYMBOLS = {
     "DAX (Germany 40)": "^GDAXI"
 }
 INTERVAL = '5m'
-LOOKBACK = '3d'
+LOOKBACK_DAYS = 3  # Używamy zmiennej, aby ułatwić modyfikację zakresu
 
 # Konfiguracja logowania
 logging.basicConfig(
@@ -38,7 +38,7 @@ class AdvancedMarketAnalyzer:
     def fetch_data(self):
         try:
             end_date = datetime.now()
-            start_date = end_date - timedelta(days=3)
+            start_date = end_date - timedelta(days=LOOKBACK_DAYS)
             self.data = yf.download(
                 self.ticker,
                 start=start_date,
@@ -55,32 +55,32 @@ class AdvancedMarketAnalyzer:
         return True
 
     def _preprocess_data(self):
-        # Filtracja szumów - sprawdzenie, czy ilość danych jest wystarczająca
-        if len(self.data) >= 21:
+        # Sprawdzamy, czy mamy wystarczającą liczbę danych do zastosowania filtru Savitzky-Golay
+        required_window = 21
+        if len(self.data) >= required_window:
             try:
-                self.data['Smooth_Close'] = savgol_filter(self.data['Close'], 21, 3)
+                self.data['Smooth_Close'] = savgol_filter(self.data['Close'], required_window, 3)
             except Exception as e:
                 logging.warning(f"Błąd filtru Savitzky-Golay dla {self.symbol}: {str(e)}")
                 self.data['Smooth_Close'] = self.data['Close']
         else:
             self.data['Smooth_Close'] = self.data['Close']
-            logging.warning(f"Niewystarczająca ilość danych do zastosowania savgol_filter dla {self.symbol}")
+            logging.warning(f"Za mało danych ({len(self.data)} punktów) do filtru S-G dla {self.symbol}. Używamy oryginalnych wartości Close.")
         
-        # Obliczanie zmienności – uzupełnienie braków wartości
-        self.data['Volatility'] = self.data['Close'].pct_change().rolling(14).std()
-        self.data['Volatility'] = self.data['Volatility'].fillna(0)
+        # Obliczanie zmienności – wypełniamy wartości NaN zerami
+        self.data['Volatility'] = self.data['Close'].pct_change().rolling(14).std().fillna(0)
         
-        # Normalizacja wolumenu – uzupełnienie braków wartości w wolumenie
+        # Normalizacja wolumenu – zabezpieczenie przed brakami danych
         self.data['Volume'] = self.data['Volume'].fillna(0)
         volume_scaler = MinMaxScaler(feature_range=(0, 1))
         self.data['Norm_Volume'] = volume_scaler.fit_transform(self.data[['Volume']])
 
     def calculate_adaptive_indicators(self):
-        # Dynamiczne RSI – sprawdzenie wartości zmienności
+        # Dynamiczne RSI – sprawdzamy, czy ostatnia zmienność jest sensowna
         last_volatility = self.data['Volatility'].iloc[-1]
         if pd.isna(last_volatility) or last_volatility <= 0:
             last_volatility = 0.1
-            logging.warning(f"Brak wartości zmienności dla {self.symbol}, używam wartości domyślnej 0.1")
+            logging.warning(f"Brak lub zerowa zmienność dla {self.symbol}. Używam wartości domyślnej 0.1")
         rsi_period = max(9, int(14 * (1 - last_volatility)))
         self.data['RSI'] = self._calculate_rsi(self.data['Close'], rsi_period)
         
@@ -110,11 +110,11 @@ class AdvancedMarketAnalyzer:
         
         rs = avg_gain / avg_loss
         rsi = 100 - (100 / (1 + rs))
-        # Wypełnienie NaN neutralną wartością 50
+        # Wypełniamy wartości NaN neutralną wartością 50
         return rsi.fillna(50)
 
     def _detect_price_patterns(self):
-        # Sprawdzenie, czy mamy wystarczającą ilość danych
+        # Upewnij się, że mamy wystarczającą ilość danych
         if 'Smooth_Close' not in self.data.columns or len(self.data['Smooth_Close']) < 3:
             logging.warning(f"Za mało danych do wykrycia formacji cenowych dla {self.symbol}")
             self.data['Higher_High'] = False
@@ -211,7 +211,7 @@ class TelegramNotifier:
         self.base_url = f"https://api.telegram.org/bot{token}"
         self.chat_id = chat_id
         
-    def send_message(self, message, symbol=None):
+    def send_message(self, message):
         try:
             payload = {
                 'chat_id': self.chat_id,
@@ -238,15 +238,15 @@ def main():
         
         if "Brak" not in signal:
             current_price = analyzer.data['Close'].iloc[-1]
-            message = [
+            message = "\n".join([
                 f"<b>{symbol} - {signal}</b>",
                 f"Cena: {current_price:.2f}",
                 "Wykryte sygnały:",
                 *details,
                 f"Wolumen: {analyzer.data['Volume'].iloc[-1]:,.0f}",
                 f"Zmienność: {analyzer.data['Volatility'].iloc[-1]*100:.2f}%"
-            ]
-            notifier.send_message("\n".join(message))
+            ])
+            notifier.send_message(message)
         else:
             logging.info(f"{symbol}: Brak istotnych sygnałów")
 
