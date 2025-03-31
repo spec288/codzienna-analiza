@@ -11,12 +11,8 @@ import os
 from datetime import datetime, timedelta
 
 # Konfiguracja - odczyt z zmiennych środowiskowych
-TOKEN = os.environ.get("TELEGRAM_TOKEN")
-CHAT_ID = os.environ.get("TELEGRAM_CHAT_ID")
-
-# Sprawdzenie zmiennych środowiskowych
-if not TOKEN or not CHAT_ID:
-    raise ValueError("Brak wymaganych zmiennych środowiskowych (TELEGRAM_TOKEN, TELEGRAM_CHAT_ID)")
+TOKEN = os.environ.get("8170414773:AAGpuW4PUBJNcbkarA8x-P6D6I3_ke9XcOU")
+CHAT_ID = os.environ.get("-1002655090041")
 
 SYMBOLS = {
     "US30 (Dow Jones)": "^DJI",
@@ -365,3 +361,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+TELEGRAM_TOKEN=8170414773:AAGpuW4PUBJNcbkarA8x-P6D6I3_ke9XcOU
+TELEGRAM_CHAT_ID=-1002655090041
