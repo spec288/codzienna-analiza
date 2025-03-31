@@ -2,24 +2,24 @@ name: Codzienna analiza trendów
 
 on:
   schedule:
-    - cron: '*/5 * * * *' # Automatyczne uruchamianie co 5 minut
-  workflow_dispatch: # Dodanie ręcznego uruchamiania
+    - cron: "0 0 * * *"  # Uruchamiany codziennie o północy
+  workflow_dispatch:
 
 jobs:
-  build:
+  run-analysis:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repozytorium
-      uses: actions/checkout@v2
+      - name: Checkout repozytorium
+        uses: actions/checkout@v3
 
-    - name: Ustawienie Python
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.9'
+      - name: Ustawienie Pythona
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.x"
 
-    - name: Instalacja wymaganych bibliotek
-  run: pip install -r requirements.txtscikit-learn
+      - name: Instalacja wymaganych bibliotek
+        run: pip install -r requirements.txt
 
-    - name: Uruchomienie skryptu analizy
-      run: python3 analiza.py
+      - name: Uruchomienie skryptu analizy
+        run: python3 analiza.py
