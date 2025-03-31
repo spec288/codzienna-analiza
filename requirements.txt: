@@ -5,6 +5,3 @@ scipy
 statsmodels
 scikit-learn
 requests
-- name: Instalacja wymaganych bibliotek
-  run: pip install -r requirements.txt
-
