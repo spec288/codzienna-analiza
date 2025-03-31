@@ -1,25 +1,29 @@
-name: Analiza trendu US30 i DAX
+name: Codzienna analiza trendów
 
 on:
   schedule:
-    - cron: "*/1 * * * *"  # Uruchamianie co minutę
-  workflow_dispatch:
+    - cron: '*/5 * * * *' # Skrypt uruchamiany co 5 minut
+  push:
+    branches:
+      - main
 
 jobs:
-  run-analysis:
+  build:
     runs-on: ubuntu-latest
 
     steps:
     - name: Checkout repozytorium
-      uses: actions/checkout@v3
+      uses: actions/checkout@v2
 
-    - name: Ustawienie Pythona
-      uses: actions/setup-python@v4
+    - name: Ustawienie Python
+      uses: actions/setup-python@v2
       with:
-        python-version: "3.x"
+        python-version: '3.9'
 
     - name: Instalacja wymaganych bibliotek
-      run: pip install yfinance requests pandas
+      run: |
+        python -m pip install --upgrade pip
+        pip install scipy pandas numpy yfinance requests statsmodels scikit-learn
 
     - name: Uruchomienie skryptu analizy
       run: python3 analiza.py
