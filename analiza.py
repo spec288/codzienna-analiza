@@ -16,7 +16,7 @@ SYMBOLS = {
     "DAX (Germany 40)": "^GDAXI"
 }
 INTERVAL = '5m'
-LOOKBACK_DAYS = 3  # Możesz zmienić zakres pobieranych danych
+LOOKBACK_DAYS = 3  # Zakres pobieranych danych
 
 # Konfiguracja logowania
 logging.basicConfig(
@@ -75,7 +75,7 @@ class AdvancedMarketAnalyzer:
                 self.data['Smooth_Close'] = self.data['Close']
         else:
             self.data['Smooth_Close'] = self.data['Close']
-            logging.warning(f"Za mało danych ({available_points} punktów) do filtra S-G dla {self.symbol}. Używamy wartości Close.")
+            logging.warning(f"Za mało danych ({available_points} punktów) do filtra S-G dla {self.symbol}. Używamy oryginalnych wartości Close.")
         
         # Obliczanie zmienności – wypełniamy wartości NaN zerami
         self.data['Volatility'] = self.data['Close'].pct_change().rolling(14).std().fillna(0)
@@ -124,7 +124,7 @@ class AdvancedMarketAnalyzer:
         return rsi.fillna(50)
 
     def _detect_price_patterns(self):
-        # Upewnij się, że mamy wystarczającą ilość danych
+        # Upewniamy się, że mamy wystarczającą ilość danych
         if 'Smooth_Close' not in self.data.columns or len(self.data['Smooth_Close']) < 3:
             logging.warning(f"Za mało danych do wykrycia formacji cenowych dla {self.symbol}")
             self.data['Higher_High'] = False
@@ -137,12 +137,26 @@ class AdvancedMarketAnalyzer:
         self.data['Higher_High'] = False
         self.data['Lower_Low'] = False
         
+        # Sprawdzamy kolejne maksima
         for i in range(1, len(max_idx)):
-            if self.data.iloc[max_idx[i]]['Smooth_Close'] > self.data.iloc[max_idx[i-1]]['Smooth_Close']:
+            try:
+                val_current = float(self.data['Smooth_Close'].iloc[max_idx[i]])
+                val_prev = float(self.data['Smooth_Close'].iloc[max_idx[i - 1]])
+            except Exception as e:
+                logging.warning(f"Błąd podczas odczytu wartości dla {self.symbol}: {e}")
+                continue
+            if val_current > val_prev:
                 self.data.at[self.data.index[max_idx[i]], 'Higher_High'] = True
                 
+        # Sprawdzamy kolejne minima
         for i in range(1, len(min_idx)):
-            if self.data.iloc[min_idx[i]]['Smooth_Close'] < self.data.iloc[min_idx[i-1]]['Smooth_Close']:
+            try:
+                val_current = float(self.data['Smooth_Close'].iloc[min_idx[i]])
+                val_prev = float(self.data['Smooth_Close'].iloc[min_idx[i - 1]])
+            except Exception as e:
+                logging.warning(f"Błąd podczas odczytu wartości dla {self.symbol}: {e}")
+                continue
+            if val_current < val_prev:
                 self.data.at[self.data.index[min_idx[i]], 'Lower_Low'] = True
 
     def _calculate_arima_forecast(self):
