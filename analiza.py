@@ -54,9 +54,11 @@ class MarketAnalyzer:
 
             # Cena aktualna
             price = current['Close']
-            signals.append(f"Cena: {price:.2f}")
+            if isinstance(price, pd.Series):
+                price = price.iloc[-1]
+            signals.append(f"Cena: {float(price):.2f}")
 
-            # Prosty wskaźnik RSI
+            # Obliczanie RSI
             delta = self.data['Close'].diff()
             gain = delta.where(delta > 0, 0)
             loss = -delta.where(delta < 0, 0)
@@ -65,6 +67,10 @@ class MarketAnalyzer:
             rs = avg_gain / avg_loss
             rsi = 100 - (100 / (1 + rs))
             current_rsi = rsi.iloc[-1]
+
+            # Sprawdzenie poprawności RSI
+            if pd.isna(current_rsi):
+                current_rsi = 50  # Domyślna wartość neutralna
 
             if current_rsi > 70:
                 signals.append(f"RSI: Sprzedaj ({current_rsi:.2f})")
@@ -86,7 +92,9 @@ class MarketAnalyzer:
 
             # Wolumen
             volume = current['Volume']
-            signals.append(f"Wolumen: {volume}")
+            if isinstance(volume, pd.Series):
+                volume = volume.iloc[-1]
+            signals.append(f"Wolumen: {int(volume)}")
 
             # Ocena końcowa
             suggestion = "Neutralne"
