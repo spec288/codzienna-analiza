@@ -10,7 +10,7 @@ TOKEN = "8170414773:AAGpuW4PUBJNcbkarA8x-P6D6I3_ke9XcOU"
 CHAT_ID = "-1002655090041"
 SYMBOLS = {
     "US30 (Dow Jones)": "US30USD",
-    "DAX (Germany 40)": "GER40"
+    "DAX (Germany 40)": "DE40EUR"
 }
 INTERVAL = Interval.INTERVAL_5_MINUTES
 
@@ -31,7 +31,7 @@ class TradingViewAnalyzer:
         self.handler = TA_Handler(
             symbol=ticker,
             screener="cfd",
-            exchange="FOREXCOM",
+            exchange="OANDA",  # Zmieniono giełdę na OANDA
             interval=INTERVAL
         )
 
