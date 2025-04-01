@@ -1,9 +1,9 @@
-name: Analiza Trendów
+name: Codzienna analiza trendów
 
 on:
   schedule:
-    - cron: "*/5 * * * *"  # Uruchamianie co 5 minut
-  workflow_dispatch:  # Ręczne uruchomienie
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
 
 jobs:
   run-analysis:
@@ -21,5 +21,5 @@ jobs:
     - name: Instalacja wymaganych bibliotek
       run: pip install -r requirements.txt
 
-    - name: Uruchomienie skryptu
+    - name: Uruchomienie skryptu analizy
       run: python3 analiza.py
