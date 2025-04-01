@@ -46,72 +46,103 @@ class MarketAnalyzer:
             logging.error(f"Błąd pobierania danych dla {self.symbol}: {str(e)}")
             return False
 
+    def calculate_indicators(self):
+        # RSI
+        delta = self.data['Close'].diff()
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+        avg_gain = gain.rolling(window=14).mean()
+        avg_loss = loss.rolling(window=14).mean()
+        rs = avg_gain / avg_loss
+        self.data['RSI'] = 100 - (100 / (1 + rs))
+
+        # MACD
+        ema12 = self.data['Close'].ewm(span=12, adjust=False).mean()
+        ema26 = self.data['Close'].ewm(span=26, adjust=False).mean()
+        self.data['MACD'] = ema12 - ema26
+        self.data['Signal'] = self.data['MACD'].ewm(span=9, adjust=False).mean()
+
+        # Zmienność
+        self.data['Volatility'] = self.data['Close'].pct_change().rolling(14).std()
+
+        # EMA 50
+        self.data['EMA50'] = self.data['Close'].ewm(span=50, adjust=False).mean()
+
+        # Stochastic Oscillator
+        self.data['Low14'] = self.data['Low'].rolling(window=14).min()
+        self.data['High14'] = self.data['High'].rolling(window=14).max()
+        self.data['Stochastic'] = 100 * ((self.data['Close'] - self.data['Low14']) / (self.data['High14'] - self.data['Low14']))
+
+        # ATR
+        self.data['ATR'] = self.data['High'].subtract(self.data['Low']).rolling(window=14).mean()
+
     def analyze_trend(self):
         try:
+            self.calculate_indicators()
             current = self.data.iloc[-1]
             signals = []
             score = 0
 
-            # Cena aktualna
+            # Cena
             price = current['Close']
-            if isinstance(price, pd.Series):
-                price = price.iloc[0]
             signals.append(f"Cena: {float(price):.2f}")
 
-            # Obliczanie RSI
-            delta = self.data['Close'].diff()
-            gain = delta.where(delta > 0, 0)
-            loss = -delta.where(delta < 0, 0)
-            avg_gain = gain.rolling(window=14, min_periods=1).mean()
-            avg_loss = loss.rolling(window=14, min_periods=1).mean()
-            rs = avg_gain / avg_loss
-            rsi = 100 - (100 / (1 + rs))
-            current_rsi = rsi.iloc[-1]
-
-            # Zabezpieczenie przed błędami RSI
-            if isinstance(current_rsi, pd.Series):
-                current_rsi = current_rsi.iloc[0]
-            if pd.isna(current_rsi):
-                current_rsi = 50  # Neutralna wartość
-
-            # Warunki RSI
-            if float(current_rsi) > 70:
-                signals.append(f"RSI: Sprzedaj ({current_rsi:.2f})")
+            # RSI
+            rsi = current['RSI']
+            if rsi > 70:
+                signals.append(f"RSI: Sprzedaj ({rsi:.2f})")
                 score -= 2
-            elif float(current_rsi) < 30:
-                signals.append(f"RSI: Kup ({current_rsi:.2f})")
+            elif rsi < 30:
+                signals.append(f"RSI: Kup ({rsi:.2f})")
                 score += 2
             else:
-                signals.append(f"RSI: Neutralne ({current_rsi:.2f})")
+                signals.append(f"RSI: Neutralne ({rsi:.2f})")
 
-            # EMA 50
-            ema50 = self.data['Close'].ewm(span=50, adjust=False).mean().iloc[-1]
-            if isinstance(ema50, pd.Series):
-                ema50 = ema50.iloc[0]
-            if float(price) > float(ema50):
+            # MACD
+            if current['MACD'] > current['Signal']:
+                signals.append("MACD: Kup")
+                score += 1
+            else:
+                signals.append("MACD: Sprzedaj")
+                score -= 1
+
+            # Trend
+            if price > current['EMA50']:
                 signals.append(f"Trend: Wzrostowy (Cena > EMA50)")
                 score += 1
             else:
                 signals.append(f"Trend: Spadkowy (Cena < EMA50)")
                 score -= 1
 
-            # Wolumen (lub alternatywnie zmienność)
-            try:
-                volume = current['Volume']
-                if isinstance(volume, pd.Series):
-                    volume = volume.iloc[0]
-                if volume == 0 or pd.isna(volume):
-                    signals.append(f"Wolumen: Brak danych")
-                else:
-                    signals.append(f"Wolumen: {int(volume)}")
-            except:
-                signals.append("Wolumen: Niedostępny")
+            # Stochastic Oscillator
+            stochastic = current['Stochastic']
+            if stochastic > 80:
+                signals.append(f"Stochastic: Sprzedaj ({stochastic:.2f})")
+                score -= 1
+            elif stochastic < 20:
+                signals.append(f"Stochastic: Kup ({stochastic:.2f})")
+                score += 1
+
+            # ATR - Zmienność
+            atr = current['ATR']
+            signals.append(f"ATR: {atr:.2f}")
+
+            # Wolumen
+            volume = current.get('Volume', 0)
+            if volume == 0 or pd.isna(volume):
+                signals.append("Wolumen: Brak danych")
+            else:
+                signals.append(f"Wolumen: {int(volume)}")
 
             # Ocena końcowa
             suggestion = "Neutralne"
-            if score >= 3:
+            if score >= 4:
+                suggestion = "Mocne Kupno"
+            elif score == 3:
                 suggestion = "Kupno"
-            elif score <= -3:
+            elif score <= -4:
+                suggestion = "Mocna Sprzedaż"
+            elif score == -3:
                 suggestion = "Sprzedaż"
 
             return suggestion, signals
@@ -127,9 +158,7 @@ class TelegramNotifier:
     def send_message(self, message):
         try:
             payload = {'chat_id': self.chat_id, 'text': message, 'parse_mode': 'HTML'}
-            response = requests.post(f"{self.base_url}/sendMessage", json=payload)
-            response.raise_for_status()
-            logging.info(f"Wysłano wiadomość: {message}")
+            requests.post(f"{self.base_url}/sendMessage", json=payload)
         except Exception as e:
             logging.error(f"Błąd wysyłania wiadomości: {str(e)}")
 
