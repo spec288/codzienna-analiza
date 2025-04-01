@@ -43,9 +43,13 @@ class TradingViewAnalyzer:
                 'RSI': analysis.indicators.get('RSI', np.nan),
                 'MACD': analysis.indicators.get('MACD.macd', np.nan),
                 'Signal': analysis.indicators.get('MACD.signal', np.nan),
-                'ATR': analysis.indicators.get('ATR', np.random.uniform(0.5, 2.0)),
+                'ATR': analysis.indicators.get('ATR', np.nan),
                 'Close': analysis.indicators.get('close', np.nan),
-                'Volume': analysis.indicators.get('volume', np.random.uniform(50000, 100000))
+                'EMA50': analysis.indicators.get('EMA50', np.nan),
+                'ADX': analysis.indicators.get('ADX', np.nan),
+                'StochRSI': analysis.indicators.get('Stoch.RSI', np.nan),
+                'SAR': analysis.indicators.get('SAR', np.nan),
+                'Volume': analysis.indicators.get('volume', np.nan)
             }
             logging.info(f"Pobrano dane z TradingView dla {self.symbol}")
             return True
@@ -59,12 +63,16 @@ class TradingViewAnalyzer:
             signals = []
             score = 0
 
+            # Cena aktualna
+            price = current['Close']
+            signals.append(f"Cena: {price:.2f}")
+
             # RSI
             rsi = current['RSI']
-            if rsi > 60:
+            if rsi > 70:
                 signals.append(f"RSI: Sprzedaj ({rsi:.2f})")
                 score -= 2
-            elif rsi < 40:
+            elif rsi < 30:
                 signals.append(f"RSI: Kup ({rsi:.2f})")
                 score += 2
             else:
@@ -80,35 +88,64 @@ class TradingViewAnalyzer:
                 signals.append("MACD: Sprzedaj")
                 score -= 1.5
 
+            # EMA 50 i przecięcie świec
+            ema50 = current['EMA50']
+            if price > ema50:
+                signals.append(f"Trend: Wzrostowy (Cena > EMA50)")
+                score += 1
+            else:
+                signals.append(f"Trend: Spadkowy (Cena < EMA50)")
+                score -= 1
+
+            # ADX - siła trendu
+            adx = current['ADX']
+            if adx > 25:
+                signals.append(f"ADX: Silny trend ({adx:.2f})")
+                score += 1
+            else:
+                signals.append(f"ADX: Słaby trend ({adx:.2f})")
+
+            # Stochastic RSI
+            stoch_rsi = current['StochRSI']
+            if stoch_rsi > 80:
+                signals.append(f"Stoch RSI: Wykupienie ({stoch_rsi:.2f})")
+                score -= 1
+            elif stoch_rsi < 20:
+                signals.append(f"Stoch RSI: Wyprzedanie ({stoch_rsi:.2f})")
+                score += 1
+            else:
+                signals.append(f"Stoch RSI: Neutralne ({stoch_rsi:.2f})")
+
+            # Parabolic SAR
+            sar = current['SAR']
+            if price > sar:
+                signals.append(f"SAR: Wsparcie (Kup)")
+                score += 1
+            else:
+                signals.append(f"SAR: Opor (Sprzedaj)")
+                score -= 1
+
             # Wolumen
             volume = current['Volume']
-            if volume > 80000:
-                signals.append("Wolumen: Wysoki (Kup)")
+            if volume > 100000:
+                signals.append("Wolumen: Wysoki (Potwierdzenie)")
                 score += 1
-            elif volume < 20000:
-                signals.append("Wolumen: Niski (Sprzedaj)")
+            elif volume < 50000:
+                signals.append("Wolumen: Niski (Ostrzeżenie)")
                 score -= 1
             else:
                 signals.append("Wolumen: Średni (Neutralne)")
 
-            # Zmienność za pomocą ATR
-            atr = current['ATR']
-            if atr > 1:
-                signals.append(f"Zmienność: Wysoka ({atr:.2f}) (Kup)")
-                score += 1
-            else:
-                signals.append(f"Zmienność: Niska ({atr:.2f}) (Neutralne)")
-
             # Ocena końcowa
             suggestion = "Neutralne"
-            if score > 5:
-                suggestion = "Mocne Kupno"
-            elif score > 2:
+            if score >= 5:
+                suggestion = "Silny sygnał kupna"
+            elif score >= 2:
                 suggestion = "Kupno"
-            elif score < -2:
+            elif score <= -2:
                 suggestion = "Sprzedaż"
-            elif score < -5:
-                suggestion = "Mocna Sprzedaż"
+            elif score <= -5:
+                suggestion = "Silny sygnał sprzedaży"
 
             return suggestion, signals, current
         except Exception as e:
