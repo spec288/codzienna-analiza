@@ -10,14 +10,22 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # Krok 1: Pobranie repozytorium
       - name: Checkout repository
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
 
+      # Krok 2: Debugowanie katalogu roboczego
+      - name: Debug current directory
+        run: pwd && ls -l
+
+      # Krok 3: Sprawdzenie obecności pliku requirements.txt
       - name: Check for requirements file
-        run: ls -l requirements.txt
+        run: ls -l ./requirements.txt
 
+      # Krok 4: Instalacja wymaganych bibliotek
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: pip install -r ./requirements.txt
 
+      # Krok 5: Uruchomienie skryptu analizy
       - name: Run analysis script
         run: python analiza.py
