@@ -69,12 +69,14 @@ class AdvancedMarketAnalyzer:
         self.data['RSI'] = self._calculate_rsi(self.data['Close'])
 
     def analyze_trend(self):
-        current = self.data.iloc[-1]
-        signals = []
-        score = 0
+    current = self.data.iloc[-1]
+    signals = []
+    score = 0
 
-        # RSI
-        rsi = float(current['RSI'])
+    # RSI
+    try:
+        rsi = float(current['RSI'].iloc[0]) if isinstance(current['RSI'], pd.Series) else float(current['RSI'])
+        logging.info(f"RSI wartość: {rsi}")
         if rsi > 60:
             signals.append(f"RSI: Sprzedaj ({rsi:.2f})")
             score -= 2
@@ -83,17 +85,26 @@ class AdvancedMarketAnalyzer:
             score += 2
         else:
             signals.append(f"RSI: Neutralne ({rsi:.2f})")
+    except Exception as e:
+        logging.error(f"Błąd w obliczeniach RSI: {str(e)}")
 
-        # MACD
-        if current['MACD'] > current['Signal']:
+    # MACD
+    try:
+        macd = float(current['MACD'].iloc[0]) if isinstance(current['MACD'], pd.Series) else float(current['MACD'])
+        signal = float(current['Signal'].iloc[0]) if isinstance(current['Signal'], pd.Series) else float(current['Signal'])
+        logging.info(f"MACD wartość: {macd}, Signal wartość: {signal}")
+        if macd > signal:
             signals.append("MACD: Kup")
             score += 1.5
         else:
             signals.append("MACD: Sprzedaj")
             score -= 1.5
+    except Exception as e:
+        logging.error(f"Błąd w obliczeniach MACD: {str(e)}")
 
-        # Wolumen
-        volume = current['Norm_Volume']
+    # Wolumen
+    try:
+        volume = float(current['Norm_Volume'].iloc[0]) if isinstance(current['Norm_Volume'], pd.Series) else float(current['Norm_Volume'])
         if volume > 0.8:
             signals.append("Wolumen: Wysoki (Kup)")
             score += 1
@@ -102,34 +113,41 @@ class AdvancedMarketAnalyzer:
             score -= 1
         else:
             signals.append("Wolumen: Średni (Neutralne)")
+    except Exception as e:
+        logging.error(f"Błąd w obliczeniach wolumenu: {str(e)}")
 
-        # Zmienność
-        volatility = current['Volatility'] * 100
+    # Zmienność
+    try:
+        volatility = float(current['Volatility'].iloc[0]) if isinstance(current['Volatility'], pd.Series) else float(current['Volatility'])
+        volatility *= 100
         if volatility > 1:
             signals.append(f"Zmienność: Wysoka ({volatility:.2f}%) (Kup)")
             score += 1
         else:
             signals.append(f"Zmienność: Niska ({volatility:.2f}%) (Neutralne)")
+    except Exception as e:
+        logging.error(f"Błąd w obliczeniach zmienności: {str(e)}")
 
-        # Ogólna sugestia
-        suggestion = "Brak sygnału"
-        if score >= 6:
-            suggestion = "Mocne kupno"
-        elif score >= 4:
-            suggestion = "Kupno"
-        elif score >= 2:
-            suggestion = "Neutralne z tendencją do kupna"
-        elif score >= -1:
-            suggestion = "Neutralne"
-        elif score >= -3:
-            suggestion = "Neutralne z tendencją do sprzedaży"
-        elif score >= -5:
-            suggestion = "Sprzedaż"
-        else:
-            suggestion = "Mocna sprzedaż"
+    # Ogólna sugestia
+    suggestion = "Brak sygnału"
+    if score >= 6:
+        suggestion = "Mocne kupno"
+    elif score >= 4:
+        suggestion = "Kupno"
+    elif score >= 2:
+        suggestion = "Neutralne z tendencją do kupna"
+    elif score >= -1:
+        suggestion = "Neutralne"
+    elif score >= -3:
+        suggestion = "Neutralne z tendencją do sprzedaży"
+    elif score >= -5:
+        suggestion = "Sprzedaż"
+    else:
+        suggestion = "Mocna sprzedaż"
 
-        logging.info(f"Sugestia: {suggestion} | Suma punktów: {score}")
-        return suggestion, signals, current
+    logging.info(f"Sugestia: {suggestion} | Suma punktów: {score}")
+    return suggestion, signals, current
+
 
 class TelegramNotifier:
     def __init__(self, token, chat_id):
