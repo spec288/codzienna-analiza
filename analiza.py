@@ -111,7 +111,8 @@ class AdvancedMarketAnalyzer:
         else:
             signals.append(f"Zmienność: Niska ({volatility:.2f}%) (Neutralne)")
 
-        # Ocena końcowa
+        # Ogólna sugestia
+        suggestion = "Brak sygnału"
         if score >= 6:
             suggestion = "Mocne kupno"
         elif score >= 4:
@@ -127,4 +128,32 @@ class AdvancedMarketAnalyzer:
         else:
             suggestion = "Mocna sprzedaż"
 
+        logging.info(f"Sugestia: {suggestion} | Suma punktów: {score}")
         return suggestion, signals, current
+
+class TelegramNotifier:
+    def __init__(self, token, chat_id):
+        self.base_url = f"https://api.telegram.org/bot{token}"
+        self.chat_id = chat_id
+
+    def send_message(self, message):
+        try:
+            payload = {'chat_id': self.chat_id, 'text': message, 'parse_mode': 'HTML'}
+            response = requests.post(f"{self.base_url}/sendMessage", json=payload)
+            response.raise_for_status()
+            logging.info(f"Wiadomość wysłana: {message}")
+        except Exception as e:
+            logging.error(f"Błąd wysyłania wiadomości: {str(e)}")
+
+def main():
+    notifier = TelegramNotifier(TOKEN, CHAT_ID)
+    for symbol, ticker in SYMBOLS.items():
+        analyzer = AdvancedMarketAnalyzer(symbol, ticker)
+        if analyzer.fetch_data():
+            analyzer.calculate_indicators()
+            suggestion, signals, current = analyzer.analyze_trend()
+            message = f"<b>{symbol} - {suggestion}</b>\n" + "\n".join(signals)
+            notifier.send_message(message)
+
+if __name__ == "__main__":
+    main()
