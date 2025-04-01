@@ -15,8 +15,8 @@ SYMBOLS = {
     "US30 (Dow Jones)": "^DJI",
     "DAX (Germany 40)": "^GDAXI"
 }
-INTERVAL = '5m'
-LOOKBACK_DAYS = 3
+INTERVAL = '1m'  # Interwał 1 minuta
+LOOKBACK_DAYS = 1  # Jeden dzień na potrzeby testu
 
 # Konfiguracja logowania
 logging.basicConfig(
@@ -48,6 +48,7 @@ class AdvancedMarketAnalyzer:
             )
             if self.data.empty:
                 raise ValueError("Brak danych z Yahoo Finance")
+            logging.info(f"Pobrano {len(self.data)} punktów danych dla {self.symbol}")
             self._preprocess_data()
         except Exception as e:
             logging.error(f"Błąd pobierania danych dla {self.symbol}: {str(e)}")
@@ -84,24 +85,6 @@ class AdvancedMarketAnalyzer:
         volume_scaler = MinMaxScaler(feature_range=(0, 1))
         self.data['Norm_Volume'] = volume_scaler.fit_transform(self.data[['Volume']])
 
-    def calculate_adaptive_indicators(self):
-        try:
-            last_volatility = self.data['Volatility'].iloc[-1] if not self.data['Volatility'].empty else 0.1
-            rsi_period = max(9, int(14 * (1 - last_volatility)))
-            self.data['RSI'] = self._calculate_rsi(self.data['Close'], rsi_period)
-
-            # Sprawdzenie obecności kolumny RSI
-            if 'RSI' not in self.data.columns:
-                self.data['RSI'] = 50
-                logging.warning(f"RSI nie został obliczony dla {self.symbol}. Ustawiono wartość neutralną 50.")
-
-            fast = int(12 * (1 + last_volatility))
-            slow = int(26 * (1 + last_volatility))
-            self.data['MACD'] = self.data['Close'].ewm(span=fast).mean() - self.data['Close'].ewm(span=slow).mean()
-            self.data['Signal'] = self.data['MACD'].ewm(span=9).mean()
-        except Exception as e:
-            logging.error(f"Błąd podczas obliczania wskaźników adaptacyjnych: {str(e)}")
-
     def _calculate_rsi(self, series, period):
         delta = series.diff()
         gain = delta.where(delta > 0, 0)
@@ -113,32 +96,39 @@ class AdvancedMarketAnalyzer:
         rsi = 100 - (100 / (1 + rs))
         return rsi.fillna(50)
 
+    def calculate_adaptive_indicators(self):
+        try:
+            self.data['RSI'] = self._calculate_rsi(self.data['Close'], 14)
+            logging.info(f"Obliczono RSI dla {self.symbol}, ostatnia wartość: {self.data['RSI'].iloc[-1]}")
+        except Exception as e:
+            logging.error(f"Błąd obliczania RSI: {str(e)}")
+
     def analyze_trend(self):
         current = self.data.iloc[-1]
         signals = []
         score = 0
 
-        if 'RSI' in current and current['RSI'] < 30:
-            score += 2
-            signals.append("RSI wykupienie")
-        elif 'RSI' in current and current['RSI'] > 70:
-            score -= 2
-            signals.append("RSI wyprzedanie")
+        # Sprawdzenie wartości RSI i logowanie
+        if 'RSI' in current:
+            logging.info(f"RSI dla {self.symbol}: {current['RSI']}")
+            try:
+                if current['RSI'] > 70:
+                    score -= 2
+                    signals.append("RSI wyprzedanie (sprzedaż)")
+                elif current['RSI'] < 30:
+                    score += 2
+                    signals.append("RSI wykupienie (kupno)")
+            except Exception as e:
+                logging.warning(f"Błąd podczas analizy RSI dla {self.symbol}: {e}")
 
-        if 'MACD' in current and 'Signal' in current:
-            if current['MACD'] > current['Signal']:
-                score += 1
-                signals.append("MACD dodatni")
-            else:
-                score -= 1
-                signals.append("MACD ujemny")
-
-        if score >= 4:
+        # Generowanie sygnału
+        logging.info(f"Suma punktów dla {self.symbol}: {score}")
+        if score >= 2:
             return "Sygnał kupna", signals
-        elif score <= -4:
+        elif score <= -2:
             return "Sygnał sprzedaży", signals
         else:
-            return "Brak wyraźnego sygnału", []
+            return "Brak wyraźnego sygnału", signals
 
 class TelegramNotifier:
     def __init__(self, token, chat_id):
@@ -150,6 +140,7 @@ class TelegramNotifier:
             payload = {'chat_id': self.chat_id, 'text': message, 'parse_mode': 'HTML'}
             response = requests.post(f"{self.base_url}/sendMessage", json=payload)
             response.raise_for_status()
+            logging.info(f"Wysłano wiadomość: {message}")
             return True
         except Exception as e:
             logging.error(f"Błąd wysyłania wiadomości: {str(e)}")
@@ -160,6 +151,7 @@ def main():
     for symbol, ticker in SYMBOLS.items():
         analyzer = AdvancedMarketAnalyzer(symbol, ticker)
         if analyzer.fetch_data():
+            analyzer.calculate_adaptive_indicators()
             signal, details = analyzer.analyze_trend()
             message = f"{symbol} - {signal}\n" + "\n".join(details)
             notifier.send_message(message)
