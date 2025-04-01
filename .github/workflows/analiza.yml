@@ -1,28 +1,23 @@
-name: Codzienna analiza trendów
+name: Analiza rynkowa
 
 on:
-  schedule:
-    - cron: "*/5 * * * *"
-  workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
-  run-analysis:
+  build:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repozytorium
-      uses: actions/checkout@v3
+      - name: Checkout repository
+        uses: actions/checkout@v2
 
-    - name: Ustawienie Pythona
-      uses: actions/setup-python@v4
-      with:
-        python-version: "3.x"
+      - name: Check for requirements file
+        run: ls -l requirements.txt
 
-    - name: Wylistowanie plików (debugowanie)
-      run: ls -l
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
-    - name: Instalacja wymaganych bibliotek
-      run: pip install -r requirements.txt
-
-    - name: Uruchomienie skryptu analizy
-      run: python3 analiza.py
+      - name: Run analysis script
+        run: python analiza.py
