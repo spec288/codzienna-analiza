@@ -69,12 +69,12 @@ class AdvancedMarketAnalyzer:
         self.data['RSI'] = self._calculate_rsi(self.data['Close'])
 
     def analyze_trend(self):
-    current = self.data.iloc[-1]
-    signals = []
-    score = 0
-
-    # RSI
     try:
+        current = self.data.iloc[-1]
+        signals = []
+        score = 0
+
+        # RSI
         rsi = float(current['RSI'].iloc[0]) if isinstance(current['RSI'], pd.Series) else float(current['RSI'])
         logging.info(f"RSI wartość: {rsi}")
         if rsi > 60:
@@ -85,11 +85,8 @@ class AdvancedMarketAnalyzer:
             score += 2
         else:
             signals.append(f"RSI: Neutralne ({rsi:.2f})")
-    except Exception as e:
-        logging.error(f"Błąd w obliczeniach RSI: {str(e)}")
 
-    # MACD
-    try:
+        # MACD
         macd = float(current['MACD'].iloc[0]) if isinstance(current['MACD'], pd.Series) else float(current['MACD'])
         signal = float(current['Signal'].iloc[0]) if isinstance(current['Signal'], pd.Series) else float(current['Signal'])
         logging.info(f"MACD wartość: {macd}, Signal wartość: {signal}")
@@ -99,11 +96,8 @@ class AdvancedMarketAnalyzer:
         else:
             signals.append("MACD: Sprzedaj")
             score -= 1.5
-    except Exception as e:
-        logging.error(f"Błąd w obliczeniach MACD: {str(e)}")
 
-    # Wolumen
-    try:
+        # Wolumen
         volume = float(current['Norm_Volume'].iloc[0]) if isinstance(current['Norm_Volume'], pd.Series) else float(current['Norm_Volume'])
         if volume > 0.8:
             signals.append("Wolumen: Wysoki (Kup)")
@@ -113,11 +107,8 @@ class AdvancedMarketAnalyzer:
             score -= 1
         else:
             signals.append("Wolumen: Średni (Neutralne)")
-    except Exception as e:
-        logging.error(f"Błąd w obliczeniach wolumenu: {str(e)}")
 
-    # Zmienność
-    try:
+        # Zmienność
         volatility = float(current['Volatility'].iloc[0]) if isinstance(current['Volatility'], pd.Series) else float(current['Volatility'])
         volatility *= 100
         if volatility > 1:
@@ -125,43 +116,31 @@ class AdvancedMarketAnalyzer:
             score += 1
         else:
             signals.append(f"Zmienność: Niska ({volatility:.2f}%) (Neutralne)")
+
+        # Ogólna sugestia
+        suggestion = "Brak sygnału"
+        if score >= 6:
+            suggestion = "Mocne kupno"
+        elif score >= 4:
+            suggestion = "Kupno"
+        elif score >= 2:
+            suggestion = "Neutralne z tendencją do kupna"
+        elif score >= -1:
+            suggestion = "Neutralne"
+        elif score >= -3:
+            suggestion = "Neutralne z tendencją do sprzedaży"
+        elif score >= -5:
+            suggestion = "Sprzedaż"
+        else:
+            suggestion = "Mocna sprzedaż"
+
+        logging.info(f"Sugestia: {suggestion} | Suma punktów: {score}")
+        return suggestion, signals, current
+
     except Exception as e:
-        logging.error(f"Błąd w obliczeniach zmienności: {str(e)}")
+        logging.error(f"Błąd w analizie trendu: {str(e)}")
+        return "Błąd analizy", ["Brak danych"], None
 
-    # Ogólna sugestia
-    suggestion = "Brak sygnału"
-    if score >= 6:
-        suggestion = "Mocne kupno"
-    elif score >= 4:
-        suggestion = "Kupno"
-    elif score >= 2:
-        suggestion = "Neutralne z tendencją do kupna"
-    elif score >= -1:
-        suggestion = "Neutralne"
-    elif score >= -3:
-        suggestion = "Neutralne z tendencją do sprzedaży"
-    elif score >= -5:
-        suggestion = "Sprzedaż"
-    else:
-        suggestion = "Mocna sprzedaż"
-
-    logging.info(f"Sugestia: {suggestion} | Suma punktów: {score}")
-    return suggestion, signals, current
-
-
-class TelegramNotifier:
-    def __init__(self, token, chat_id):
-        self.base_url = f"https://api.telegram.org/bot{token}"
-        self.chat_id = chat_id
-
-    def send_message(self, message):
-        try:
-            payload = {'chat_id': self.chat_id, 'text': message, 'parse_mode': 'HTML'}
-            response = requests.post(f"{self.base_url}/sendMessage", json=payload)
-            response.raise_for_status()
-            logging.info(f"Wiadomość wysłana: {message}")
-        except Exception as e:
-            logging.error(f"Błąd wysyłania wiadomości: {str(e)}")
 
 def main():
     notifier = TelegramNotifier(TOKEN, CHAT_ID)
