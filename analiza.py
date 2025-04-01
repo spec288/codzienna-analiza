@@ -55,7 +55,7 @@ class MarketAnalyzer:
             # Cena aktualna
             price = current['Close']
             if isinstance(price, pd.Series):
-                price = price.iloc[-1]
+                price = price.iloc[0]
             signals.append(f"Cena: {float(price):.2f}")
 
             # Obliczanie RSI
@@ -68,19 +68,17 @@ class MarketAnalyzer:
             rsi = 100 - (100 / (1 + rs))
             current_rsi = rsi.iloc[-1]
 
-            # Zabezpieczenie przed pustą wartością
-            if pd.isna(current_rsi):
-                current_rsi = 50
-
-            # Sprawdzanie typu RSI
+            # Zabezpieczenie przed błędami RSI
             if isinstance(current_rsi, pd.Series):
-                current_rsi = current_rsi.iloc[-1]
+                current_rsi = current_rsi.iloc[0]
+            if pd.isna(current_rsi):
+                current_rsi = 50  # Neutralna wartość
 
             # Warunki RSI
-            if current_rsi > 70:
+            if float(current_rsi) > 70:
                 signals.append(f"RSI: Sprzedaj ({current_rsi:.2f})")
                 score -= 2
-            elif current_rsi < 30:
+            elif float(current_rsi) < 30:
                 signals.append(f"RSI: Kup ({current_rsi:.2f})")
                 score += 2
             else:
@@ -89,8 +87,8 @@ class MarketAnalyzer:
             # EMA 50
             ema50 = self.data['Close'].ewm(span=50, adjust=False).mean().iloc[-1]
             if isinstance(ema50, pd.Series):
-                ema50 = ema50.iloc[-1]
-            if price > ema50:
+                ema50 = ema50.iloc[0]
+            if float(price) > float(ema50):
                 signals.append(f"Trend: Wzrostowy (Cena > EMA50)")
                 score += 1
             else:
@@ -100,7 +98,7 @@ class MarketAnalyzer:
             # Wolumen
             volume = current['Volume']
             if isinstance(volume, pd.Series):
-                volume = volume.iloc[-1]
+                volume = volume.iloc[0]
             signals.append(f"Wolumen: {int(volume)}")
 
             # Ocena końcowa
