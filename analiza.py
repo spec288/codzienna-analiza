@@ -49,6 +49,7 @@ class AdvancedMarketAnalyzer:
             if self.data.empty:
                 raise ValueError("Brak danych z Yahoo Finance")
             logging.info(f"Pobrano {len(self.data)} punktów danych dla {self.symbol}")
+            logging.info(f"Przykładowe dane: \n{self.data.tail(5)}")
             self._preprocess_data()
         except Exception as e:
             logging.error(f"Błąd pobierania danych dla {self.symbol}: {str(e)}")
@@ -110,16 +111,21 @@ class AdvancedMarketAnalyzer:
 
         # Sprawdzenie wartości RSI i logowanie
         if 'RSI' in current:
-            logging.info(f"RSI dla {self.symbol}: {current['RSI']}")
             try:
-                if current['RSI'] > 70:
+                rsi_value = float(current['RSI'])  # Rzutowanie na float
+                logging.info(f"RSI dla {self.symbol}: {rsi_value}")
+                if rsi_value > 70:
                     score -= 2
-                    signals.append("RSI wyprzedanie (sprzedaż)")
-                elif current['RSI'] < 30:
+                    signals.append(f"RSI wyprzedanie (sprzedaż) - wartość: {rsi_value:.2f}")
+                elif rsi_value < 30:
                     score += 2
-                    signals.append("RSI wykupienie (kupno)")
+                    signals.append(f"RSI wykupienie (kupno) - wartość: {rsi_value:.2f}")
+                else:
+                    signals.append(f"RSI neutralne - wartość: {rsi_value:.2f}")
             except Exception as e:
                 logging.warning(f"Błąd podczas analizy RSI dla {self.symbol}: {e}")
+        else:
+            logging.warning(f"Brak danych RSI dla {self.symbol}")
 
         # Generowanie sygnału
         logging.info(f"Suma punktów dla {self.symbol}: {score}")
@@ -138,6 +144,7 @@ class TelegramNotifier:
     def send_message(self, message):
         try:
             payload = {'chat_id': self.chat_id, 'text': message, 'parse_mode': 'HTML'}
+            logging.info(f"Przygotowano wiadomość do wysłania: {message}")
             response = requests.post(f"{self.base_url}/sendMessage", json=payload)
             response.raise_for_status()
             logging.info(f"Wysłano wiadomość: {message}")
