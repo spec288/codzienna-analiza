@@ -68,10 +68,10 @@ class MarketAnalyzer:
         # EMA 50
         self.data['EMA50'] = self.data['Close'].ewm(span=50, adjust=False).mean()
 
-        # Stochastic Oscillator
-        self.data['Low14'] = self.data['Low'].rolling(window=14).min()
-        self.data['High14'] = self.data['High'].rolling(window=14).max()
-        self.data['Stochastic'] = 100 * ((self.data['Close'] - self.data['Low14']) / (self.data['High14'] - self.data['Low14']))
+        # Stochastic Oscillator (poprawiony)
+        low14 = self.data['Low'].rolling(window=14).min()
+        high14 = self.data['High'].rolling(window=14).max()
+        self.data['Stochastic'] = 100 * ((self.data['Close'] - low14) / (high14 - low14))
 
         # ATR
         self.data['ATR'] = self.data['High'].subtract(self.data['Low']).rolling(window=14).mean()
