@@ -1,7 +1,4 @@
 yfinance
 pandas
 numpy
-scipy
-statsmodels
-scikit-learn
 requests
