@@ -1,9 +1,9 @@
-name: Codzienna analiza trendów
+name: Analiza Trendów
 
 on:
   schedule:
     - cron: "*/5 * * * *"  # Uruchamianie co 5 minut
-  workflow_dispatch:
+  workflow_dispatch:  # Ręczne uruchomienie
 
 jobs:
   run-analysis:
@@ -19,7 +19,7 @@ jobs:
         python-version: "3.x"
 
     - name: Instalacja wymaganych bibliotek
-      run: pip install yfinance requests pandas
+      run: pip install -r requirements.txt
 
-    - name: Uruchomienie skryptu analizy
+    - name: Uruchomienie skryptu
       run: python3 analiza.py
