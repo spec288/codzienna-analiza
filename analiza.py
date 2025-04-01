@@ -10,7 +10,7 @@ TOKEN = "8170414773:AAGpuW4PUBJNcbkarA8x-P6D6I3_ke9XcOU"
 CHAT_ID = "-1002655090041"
 SYMBOLS = {
     "US30 (Dow Jones)": "US30USD",
-    "DAX (Germany 40)": "DE40EUR"
+    "DAX (Germany 40)": "GER40"
 }
 INTERVAL = Interval.INTERVAL_5_MINUTES
 
@@ -28,10 +28,18 @@ class TradingViewAnalyzer:
     def __init__(self, symbol, ticker):
         self.symbol = symbol
         self.ticker = ticker
+        # Dynamiczne ustawienie giełdy w zależności od indeksu
+        if "US30" in ticker:
+            self.exchange = "OANDA"
+        elif "GER40" in ticker:
+            self.exchange = "CAPITALCOM"
+        else:
+            self.exchange = "OANDA"  # Domyślna giełda
+
         self.handler = TA_Handler(
             symbol=ticker,
             screener="cfd",
-            exchange="OANDA",  # Zmieniono giełdę na OANDA
+            exchange=self.exchange,
             interval=INTERVAL
         )
 
