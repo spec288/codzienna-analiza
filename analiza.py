@@ -95,11 +95,17 @@ class MarketAnalyzer:
                 signals.append(f"Trend: Spadkowy (Cena < EMA50)")
                 score -= 1
 
-            # Wolumen
-            volume = current['Volume']
-            if isinstance(volume, pd.Series):
-                volume = volume.iloc[0]
-            signals.append(f"Wolumen: {int(volume)}")
+            # Wolumen (lub alternatywnie zmienność)
+            try:
+                volume = current['Volume']
+                if isinstance(volume, pd.Series):
+                    volume = volume.iloc[0]
+                if volume == 0 or pd.isna(volume):
+                    signals.append(f"Wolumen: Brak danych")
+                else:
+                    signals.append(f"Wolumen: {int(volume)}")
+            except:
+                signals.append("Wolumen: Niedostępny")
 
             # Ocena końcowa
             suggestion = "Neutralne"
