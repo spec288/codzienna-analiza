@@ -68,10 +68,15 @@ class MarketAnalyzer:
             rsi = 100 - (100 / (1 + rs))
             current_rsi = rsi.iloc[-1]
 
-            # Sprawdzenie poprawności RSI
+            # Zabezpieczenie przed pustą wartością
             if pd.isna(current_rsi):
-                current_rsi = 50  # Domyślna wartość neutralna
+                current_rsi = 50
 
+            # Sprawdzanie typu RSI
+            if isinstance(current_rsi, pd.Series):
+                current_rsi = current_rsi.iloc[-1]
+
+            # Warunki RSI
             if current_rsi > 70:
                 signals.append(f"RSI: Sprzedaj ({current_rsi:.2f})")
                 score -= 2
@@ -83,6 +88,8 @@ class MarketAnalyzer:
 
             # EMA 50
             ema50 = self.data['Close'].ewm(span=50, adjust=False).mean().iloc[-1]
+            if isinstance(ema50, pd.Series):
+                ema50 = ema50.iloc[-1]
             if price > ema50:
                 signals.append(f"Trend: Wzrostowy (Cena > EMA50)")
                 score += 1
