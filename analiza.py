@@ -63,80 +63,75 @@ class AdvancedMarketAnalyzer:
         if window_length % 2 == 0:
             window_length -= 1
 
-        if window_length >= min_window:
-            try:
+        try:
+            if window_length >= min_window:
                 self.data['Smooth_Close'] = savgol_filter(
-                    self.data['Close'],
-                    window_length,
-                    3,
+                    self.data['Close'], 
+                    window_length, 
+                    3, 
                     mode='nearest'
                 )
-            except Exception as e:
-                logging.warning(f"Błąd filtru Savitzky-Golay: {str(e)}")
+                logging.info(f"Zastosowano savgol_filter z oknem: {window_length}")
+            else:
                 self.data['Smooth_Close'] = self.data['Close']
-        else:
+                logging.warning(f"Za mało danych do filtra S-G ({available_points} punktów).")
+        except Exception as e:
+            logging.warning(f"Błąd filtru Savitzky-Golay: {str(e)}")
             self.data['Smooth_Close'] = self.data['Close']
-            logging.warning(f"Za mało danych ({available_points} punktów) do filtra S-G dla {self.symbol}.")
 
         self.data['Volatility'] = self.data['Close'].pct_change().rolling(14).std().fillna(0)
         self.data['Volume'] = self.data['Volume'].fillna(0)
         volume_scaler = MinMaxScaler(feature_range=(0, 1))
         self.data['Norm_Volume'] = volume_scaler.fit_transform(self.data[['Volume']])
 
-    def _detect_price_patterns(self):
-        if 'Smooth_Close' not in self.data.columns or len(self.data['Smooth_Close']) < 3:
-            logging.warning(f"Za mało danych do wykrycia formacji cenowych dla {self.symbol}")
-            return
+    def calculate_adaptive_indicators(self):
+        try:
+            last_volatility = self.data['Volatility'].iloc[-1] if not self.data['Volatility'].empty else 0.1
+            rsi_period = max(9, int(14 * (1 - last_volatility)))
+            self.data['RSI'] = self._calculate_rsi(self.data['Close'], rsi_period)
 
-        max_idx = argrelextrema(self.data['Smooth_Close'].values, np.greater)[0]
-        min_idx = argrelextrema(self.data['Smooth_Close'].values, np.less)[0]
+            # Sprawdzenie obecności kolumny RSI
+            if 'RSI' not in self.data.columns:
+                self.data['RSI'] = 50
+                logging.warning(f"RSI nie został obliczony dla {self.symbol}. Ustawiono wartość neutralną 50.")
 
-        self.data['Higher_High'] = False
-        self.data['Lower_Low'] = False
+            fast = int(12 * (1 + last_volatility))
+            slow = int(26 * (1 + last_volatility))
+            self.data['MACD'] = self.data['Close'].ewm(span=fast).mean() - self.data['Close'].ewm(span=slow).mean()
+            self.data['Signal'] = self.data['MACD'].ewm(span=9).mean()
+        except Exception as e:
+            logging.error(f"Błąd podczas obliczania wskaźników adaptacyjnych: {str(e)}")
 
-        for idx in max_idx:
-            try:
-                current = float(self.data['Smooth_Close'].iloc[idx])
-                prev = float(self.data['Smooth_Close'].iloc[idx - 1])
-                if current > prev:
-                    self.data.loc[self.data.index[idx], 'Higher_High'] = True
-            except Exception as e:
-                logging.warning(f"Błąd przy analizie Higher_High dla {self.symbol}: {e}")
-
-        for idx in min_idx:
-            try:
-                current = float(self.data['Smooth_Close'].iloc[idx])
-                prev = float(self.data['Smooth_Close'].iloc[idx - 1])
-                if current < prev:
-                    self.data.loc[self.data.index[idx], 'Lower_Low'] = True
-            except Exception as e:
-                logging.warning(f"Błąd przy analizie Lower_Low dla {self.symbol}: {e}")
+    def _calculate_rsi(self, series, period):
+        delta = series.diff()
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+        avg_gain = gain.ewm(alpha=1/period, min_periods=period).mean()
+        avg_loss = loss.ewm(alpha=1/period, min_periods=period).mean()
+        avg_loss = avg_loss.replace(0, 1e-10)
+        rs = avg_gain / avg_loss
+        rsi = 100 - (100 / (1 + rs))
+        return rsi.fillna(50)
 
     def analyze_trend(self):
         current = self.data.iloc[-1]
         signals = []
         score = 0
 
-        if current['RSI'] < 30:
+        if 'RSI' in current and current['RSI'] < 30:
             score += 2
             signals.append("RSI wykupienie")
-        elif current['RSI'] > 70:
+        elif 'RSI' in current and current['RSI'] > 70:
             score -= 2
             signals.append("RSI wyprzedanie")
 
-        if current['MACD'] > current['Signal']:
-            score += 1
-            signals.append("MACD dodatni")
-        else:
-            score -= 1
-            signals.append("MACD ujemny")
-
-        if current.get('Higher_High', False):
-            score += 2
-            signals.append("Wyższy szczyt")
-        if current.get('Lower_Low', False):
-            score -= 2
-            signals.append("Niższy dołek")
+        if 'MACD' in current and 'Signal' in current:
+            if current['MACD'] > current['Signal']:
+                score += 1
+                signals.append("MACD dodatni")
+            else:
+                score -= 1
+                signals.append("MACD ujemny")
 
         if score >= 4:
             return "Sygnał kupna", signals
