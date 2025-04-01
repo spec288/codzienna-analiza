@@ -101,15 +101,15 @@ class AdvancedMarketAnalyzer:
             signals.append("Wolumen: Niski (Sprzedaj)")
             score -= 1
         else:
-            signals.append("Wolumen: Średni")
+            signals.append("Wolumen: Średni (Neutralne)")
 
         # Zmienność
         volatility = current['Volatility'] * 100
         if volatility > 1:
-            signals.append(f"Zmienność: Wysoka ({volatility:.2f}%)")
+            signals.append(f"Zmienność: Wysoka ({volatility:.2f}%) (Kup)")
             score += 1
         else:
-            signals.append(f"Zmienność: Niska ({volatility:.2f}%)")
+            signals.append(f"Zmienność: Niska ({volatility:.2f}%) (Neutralne)")
 
         # Ocena końcowa
         if score >= 6:
@@ -117,4 +117,14 @@ class AdvancedMarketAnalyzer:
         elif score >= 4:
             suggestion = "Kupno"
         elif score >= 2:
-            suggestion = "
+            suggestion = "Neutralne z tendencją do kupna"
+        elif score >= -1:
+            suggestion = "Neutralne"
+        elif score >= -3:
+            suggestion = "Neutralne z tendencją do sprzedaży"
+        elif score >= -5:
+            suggestion = "Sprzedaż"
+        else:
+            suggestion = "Mocna sprzedaż"
+
+        return suggestion, signals, current
