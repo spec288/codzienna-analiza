@@ -9,8 +9,8 @@ from datetime import datetime
 TOKEN = "8170414773:AAGpuW4PUBJNcbkarA8x-P6D6I3_ke9XcOU"
 CHAT_ID = "-1002655090041"
 SYMBOLS = {
-    "US30 (Dow Jones)": "US30USD",
-    "DAX (Germany 40)": "GER40"
+    "US30 (Dow Jones)": ("US30USD", "OANDA"),
+    "DAX (Germany 40)": ("DAX", "XETR")
 }
 INTERVAL = Interval.INTERVAL_5_MINUTES
 
@@ -25,21 +25,14 @@ logging.basicConfig(
 )
 
 class TradingViewAnalyzer:
-    def __init__(self, symbol, ticker):
+    def __init__(self, symbol, ticker, exchange):
         self.symbol = symbol
         self.ticker = ticker
-        # Dynamiczne ustawienie giełdy w zależności od indeksu
-        if "US30" in ticker:
-            self.exchange = "OANDA"
-        elif "GER40" in ticker:
-            self.exchange = "CAPITALCOM"
-        else:
-            self.exchange = "OANDA"  # Domyślna giełda
-
+        self.exchange = exchange
         self.handler = TA_Handler(
             symbol=ticker,
             screener="cfd",
-            exchange=self.exchange,
+            exchange=exchange,
             interval=INTERVAL
         )
 
@@ -138,8 +131,8 @@ class TelegramNotifier:
 
 def main():
     notifier = TelegramNotifier(TOKEN, CHAT_ID)
-    for symbol, ticker in SYMBOLS.items():
-        analyzer = TradingViewAnalyzer(symbol, ticker)
+    for symbol, (ticker, exchange) in SYMBOLS.items():
+        analyzer = TradingViewAnalyzer(symbol, ticker, exchange)
         if analyzer.fetch_data():
             suggestion, signals, current = analyzer.analyze_trend()
             message = f"<b>{symbol} - {suggestion}</b>\n" + "\n".join(signals)
