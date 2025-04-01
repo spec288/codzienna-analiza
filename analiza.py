@@ -84,11 +84,11 @@ class MarketAnalyzer:
             score = 0
 
             # Cena
-            price = current['Close']
-            signals.append(f"Cena: {float(price):.2f}")
+            price = float(current['Close'].iloc[-1]) if isinstance(current['Close'], pd.Series) else float(current['Close'])
+            signals.append(f"Cena: {price:.2f}")
 
             # RSI
-            rsi = current['RSI']
+            rsi = float(current['RSI'].iloc[-1]) if isinstance(current['RSI'], pd.Series) else float(current['RSI'])
             if rsi > 70:
                 signals.append(f"RSI: Sprzedaj ({rsi:.2f})")
                 score -= 2
@@ -99,7 +99,9 @@ class MarketAnalyzer:
                 signals.append(f"RSI: Neutralne ({rsi:.2f})")
 
             # MACD
-            if current['MACD'] > current['Signal']:
+            macd = float(current['MACD'].iloc[-1]) if isinstance(current['MACD'], pd.Series) else float(current['MACD'])
+            signal = float(current['Signal'].iloc[-1]) if isinstance(current['Signal'], pd.Series) else float(current['Signal'])
+            if macd > signal:
                 signals.append("MACD: Kup")
                 score += 1
             else:
@@ -107,7 +109,7 @@ class MarketAnalyzer:
                 score -= 1
 
             # Trend
-            if price > current['EMA50']:
+            if price > float(current['EMA50']):
                 signals.append(f"Trend: Wzrostowy (Cena > EMA50)")
                 score += 1
             else:
@@ -115,7 +117,7 @@ class MarketAnalyzer:
                 score -= 1
 
             # Stochastic Oscillator
-            stochastic = current['Stochastic']
+            stochastic = float(current['Stochastic'])
             if stochastic > 80:
                 signals.append(f"Stochastic: Sprzedaj ({stochastic:.2f})")
                 score -= 1
@@ -124,15 +126,15 @@ class MarketAnalyzer:
                 score += 1
 
             # ATR - Zmienność
-            atr = current['ATR']
+            atr = float(current['ATR'])
             signals.append(f"ATR: {atr:.2f}")
 
             # Wolumen
-            volume = current.get('Volume', 0)
+            volume = int(current.get('Volume', 0))
             if volume == 0 or pd.isna(volume):
                 signals.append("Wolumen: Brak danych")
             else:
-                signals.append(f"Wolumen: {int(volume)}")
+                signals.append(f"Wolumen: {volume}")
 
             # Ocena końcowa
             suggestion = "Neutralne"
