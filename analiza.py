@@ -31,7 +31,7 @@ class TradingViewAnalyzer:
         self.handler = TA_Handler(
             symbol=ticker,
             screener="cfd",
-            exchange="OANDA",
+            exchange="FOREXCOM",  # Poprawiona giełda
             interval=INTERVAL
         )
 
@@ -42,7 +42,7 @@ class TradingViewAnalyzer:
                 'RSI': analysis.indicators['RSI'],
                 'MACD': analysis.indicators['MACD.macd'],
                 'Signal': analysis.indicators['MACD.signal'],
-                'ATR': analysis.indicators.get('ATR', np.random.uniform(0.5, 2.0)),  # ATR jako wskaźnik zmienności
+                'ATR': analysis.indicators.get('ATR', np.random.uniform(0.5, 2.0)),
                 'Close': analysis.indicators['close'],
                 'Volume': analysis.indicators.get('volume', np.random.uniform(50000, 100000))
             }
@@ -61,81 +61,4 @@ class TradingViewAnalyzer:
             # RSI
             rsi = current['RSI']
             if rsi > 60:
-                signals.append(f"RSI: Sprzedaj ({rsi:.2f})")
-                score -= 2
-            elif rsi < 40:
-                signals.append(f"RSI: Kup ({rsi:.2f})")
-                score += 2
-            else:
-                signals.append(f"RSI: Neutralne ({rsi:.2f})")
-
-            # MACD
-            macd = current['MACD']
-            signal = current['Signal']
-            if macd > signal:
-                signals.append("MACD: Kup")
-                score += 1.5
-            else:
-                signals.append("MACD: Sprzedaj")
-                score -= 1.5
-
-            # Wolumen
-            volume = current['Volume']
-            if volume > 80000:
-                signals.append("Wolumen: Wysoki (Kup)")
-                score += 1
-            elif volume < 20000:
-                signals.append("Wolumen: Niski (Sprzedaj)")
-                score -= 1
-            else:
-                signals.append("Wolumen: Średni (Neutralne)")
-
-            # Zmienność za pomocą ATR
-            atr = current['ATR']
-            if atr > 1:
-                signals.append(f"Zmienność: Wysoka ({atr:.2f}) (Kup)")
-                score += 1
-            else:
-                signals.append(f"Zmienność: Niska ({atr:.2f}) (Neutralne)")
-
-            # Ocena końcowa
-            suggestion = "Neutralne"
-            if score > 5:
-                suggestion = "Mocne Kupno"
-            elif score > 2:
-                suggestion = "Kupno"
-            elif score < -2:
-                suggestion = "Sprzedaż"
-            elif score < -5:
-                suggestion = "Mocna Sprzedaż"
-
-            return suggestion, signals, current
-        except Exception as e:
-            logging.error(f"Błąd w analizie trendu: {str(e)}")
-            return "Błąd analizy", ["Brak danych"], None
-
-class TelegramNotifier:
-    def __init__(self, token, chat_id):
-        self.base_url = f"https://api.telegram.org/bot{token}"
-        self.chat_id = chat_id
-
-    def send_message(self, message):
-        try:
-            payload = {'chat_id': self.chat_id, 'text': message, 'parse_mode': 'HTML'}
-            response = requests.post(f"{self.base_url}/sendMessage", json=payload)
-            response.raise_for_status()
-            logging.info(f"Wysłano wiadomość: {message}")
-        except Exception as e:
-            logging.error(f"Błąd wysyłania wiadomości: {str(e)}")
-
-def main():
-    notifier = TelegramNotifier(TOKEN, CHAT_ID)
-    for symbol, ticker in SYMBOLS.items():
-        analyzer = TradingViewAnalyzer(symbol, ticker)
-        if analyzer.fetch_data():
-            suggestion, signals, current = analyzer.analyze_trend()
-            message = f"<b>{symbol} - {suggestion}</b>\n" + "\n".join(signals)
-            notifier.send_message(message)
-
-if __name__ == "__main__":
-    main()
+                signals.append(f"RSI: Sprzed
