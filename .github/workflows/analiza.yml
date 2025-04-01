@@ -1,4 +1,4 @@
-name: Analiza Trendów US30 i DAX
+name: Codzienna analiza trendów
 
 on:
   schedule:
@@ -6,20 +6,20 @@ on:
   workflow_dispatch:
 
 jobs:
-  analyze:
+  run-analysis:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repozytorium
-        uses: actions/checkout@v3
+    - name: Checkout repozytorium
+      uses: actions/checkout@v3
 
-      - name: Ustaw Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.x'
+    - name: Ustawienie Pythona
+      uses: actions/setup-python@v4
+      with:
+        python-version: "3.x"
 
-      - name: Instalacja wymaganych pakietów
-        run: pip install tradingview_ta pandas requests
+    - name: Instalacja wymaganych bibliotek
+      run: pip install yfinance requests pandas
 
-      - name: Uruchom skrypt analizy
-        run: python analiza.py
+    - name: Uruchomienie skryptu analizy
+      run: python3 analiza.py
