@@ -10,7 +10,7 @@ TOKEN = "8170414773:AAGpuW4PUBJNcbkarA8x-P6D6I3_ke9XcOU"
 CHAT_ID = "-1002655090041"
 SYMBOLS = {
     "US30 (Dow Jones)": ("US30USD", "OANDA"),
-    "DAX (Germany 40)": ("DAX", "XETR")
+    "DAX (Germany 40)": ("GER40", "MARKETSCOM")
 }
 INTERVAL = Interval.INTERVAL_5_MINUTES
 
