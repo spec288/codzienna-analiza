@@ -18,6 +18,9 @@ jobs:
       with:
         python-version: "3.x"
 
+    - name: Wylistowanie plików (debugowanie)
+      run: ls -l
+
     - name: Instalacja wymaganych bibliotek
       run: pip install -r requirements.txt
 
