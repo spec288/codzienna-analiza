@@ -15,7 +15,7 @@ SYMBOLS = {
     "US30 (Dow Jones)": "^DJI",
     "DAX (Germany 40)": "^GDAXI"
 }
-INTERVAL = '1m'  # Interwał 1 minuta
+INTERVAL = '5m'  # Interwał 5 minut
 LOOKBACK_DAYS = 1  # Jeden dzień na potrzeby testu
 
 # Konfiguracja logowania
@@ -34,7 +34,7 @@ class AdvancedMarketAnalyzer:
         self.ticker = ticker
         self.data = None
         self.indicators = {}
-        
+
     def fetch_data(self):
         try:
             end_date = datetime.now()
@@ -68,9 +68,9 @@ class AdvancedMarketAnalyzer:
         try:
             if window_length >= min_window:
                 self.data['Smooth_Close'] = savgol_filter(
-                    self.data['Close'], 
-                    window_length, 
-                    3, 
+                    self.data['Close'],
+                    window_length,
+                    3,
                     mode='nearest'
                 )
                 logging.info(f"Zastosowano savgol_filter z oknem: {window_length}")
@@ -101,6 +101,7 @@ class AdvancedMarketAnalyzer:
         try:
             self.data['RSI'] = self._calculate_rsi(self.data['Close'], 14)
             logging.info(f"Obliczono RSI dla {self.symbol}, ostatnia wartość: {self.data['RSI'].iloc[-1]}")
+            logging.info(f"Pełne dane RSI dla {self.symbol}:\n{self.data['RSI'].tail(10)}")
         except Exception as e:
             logging.error(f"Błąd obliczania RSI: {str(e)}")
 
@@ -112,14 +113,14 @@ class AdvancedMarketAnalyzer:
         # Sprawdzenie wartości RSI i logowanie
         if 'RSI' in current:
             try:
-                rsi_value = float(current['RSI'])  # Rzutowanie na float
+                rsi_value = float(current['RSI'])
                 logging.info(f"RSI dla {self.symbol}: {rsi_value}")
-                if rsi_value > 70:
+                if rsi_value > 60:
                     score -= 2
-                    signals.append(f"RSI wyprzedanie (sprzedaż) - wartość: {rsi_value:.2f}")
-                elif rsi_value < 30:
+                    signals.append(f"RSI wykupienie (sprzedaż) - wartość: {rsi_value:.2f}")
+                elif rsi_value < 40:
                     score += 2
-                    signals.append(f"RSI wykupienie (kupno) - wartość: {rsi_value:.2f}")
+                    signals.append(f"RSI wyprzedanie (kupno) - wartość: {rsi_value:.2f}")
                 else:
                     signals.append(f"RSI neutralne - wartość: {rsi_value:.2f}")
             except Exception as e:
