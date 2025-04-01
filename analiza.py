@@ -75,44 +75,82 @@ class AdvancedMarketAnalyzer:
             score = 0
 
             # RSI
-            try:
-                rsi = float(current['RSI'])
-                if rsi > 60:
-                    signals.append(f"RSI: Sprzedaj ({rsi:.2f})")
-                    score -= 2
-                elif rsi < 40:
-                    signals.append(f"RSI: Kup ({rsi:.2f})")
-                    score += 2
-                else:
-                    signals.append(f"RSI: Neutralne ({rsi:.2f})")
-            except Exception as e:
-                logging.error(f"Błąd w obliczeniach RSI: {str(e)}")
+            rsi = float(current['RSI'])
+            if rsi > 60:
+                signals.append(f"RSI: Sprzedaj ({rsi:.2f})")
+                score -= 2
+            elif rsi < 40:
+                signals.append(f"RSI: Kup ({rsi:.2f})")
+                score += 2
+            else:
+                signals.append(f"RSI: Neutralne ({rsi:.2f})")
 
             # MACD
-            try:
-                macd = float(current['MACD'])
-                signal = float(current['Signal'])
-                if macd > signal:
-                    signals.append("MACD: Kup")
-                    score += 1.5
-                else:
-                    signals.append("MACD: Sprzedaj")
-                    score -= 1.5
-            except Exception as e:
-                logging.error(f"Błąd w obliczeniach MACD: {str(e)}")
+            macd = float(current['MACD'])
+            signal = float(current['Signal'])
+            if macd > signal:
+                signals.append("MACD: Kup")
+                score += 1.5
+            else:
+                signals.append("MACD: Sprzedaj")
+                score -= 1.5
 
             # Wolumen
-            try:
-                volume = float(current['Norm_Volume'])
-                if volume > 0.8:
-                    signals.append("Wolumen: Wysoki (Kup)")
-                    score += 1
-                elif volume < 0.2:
-                    signals.append("Wolumen: Niski (Sprzedaj)")
-                    score -= 1
-                else:
-                    signals.append("Wolumen: Średni (Neutralne)")
-            except Exception as e:
-                logging.error(f"Błąd w obliczeniach wolumenu: {str(e)}")
+            volume = float(current['Norm_Volume'])
+            if volume > 0.8:
+                signals.append("Wolumen: Wysoki (Kup)")
+                score += 1
+            elif volume < 0.2:
+                signals.append("Wolumen: Niski (Sprzedaj)")
+                score -= 1
+            else:
+                signals.append("Wolumen: Średni (Neutralne)")
 
-            # Zmien
+            # Zmienność
+            volatility = float(current['Volatility']) * 100
+            if volatility > 1:
+                signals.append(f"Zmienność: Wysoka ({volatility:.2f}%) (Kup)")
+                score += 1
+            else:
+                signals.append(f"Zmienność: Niska ({volatility:.2f}%) (Neutralne)")
+
+            suggestion = "Neutralne"
+            if score > 5:
+                suggestion = "Mocne Kupno"
+            elif score > 2:
+                suggestion = "Kupno"
+            elif score < -2:
+                suggestion = "Sprzedaż"
+            elif score < -5:
+                suggestion = "Mocna Sprzedaż"
+
+            return suggestion, signals, current
+        except Exception as e:
+            logging.error(f"Błąd w analizie trendu: {str(e)}")
+            return "Błąd analizy", ["Brak danych"], None
+
+class TelegramNotifier:
+    def __init__(self, token, chat_id):
+        self.base_url = f"https://api.telegram.org/bot{token}"
+        self.chat_id = chat_id
+
+    def send_message(self, message):
+        try:
+            payload = {'chat_id': self.chat_id, 'text': message, 'parse_mode': 'HTML'}
+            response = requests.post(f"{self.base_url}/sendMessage", json=payload)
+            response.raise_for_status()
+        except Exception as e:
+            logging.error(f"Błąd wysyłania wiadomości: {str(e)}")
+
+def main():
+    notifier = TelegramNotifier(TOKEN, CHAT_ID)
+    for symbol, ticker in SYMBOLS.items():
+        analyzer = AdvancedMarketAnalyzer(symbol, ticker)
+        if analyzer.fetch_data():
+            analyzer.calculate_indicators()
+            suggestion, signals, current = analyzer.analyze_trend()
+            message = f"<b>{symbol} - {suggestion}</b>\n" + "\n".join(signals)
+            notifier.send_message(message)
+
+if __name__ == "__main__":
+    main()
