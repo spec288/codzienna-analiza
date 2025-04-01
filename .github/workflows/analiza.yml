@@ -1,27 +1,25 @@
-name: Codzienna analiza trendów
+name: Analiza Trendów US30 i DAX
 
 on:
   schedule:
-    - cron: '*/5 * * * *'  # Uruchamianie co 5 minut
-  workflow_dispatch:        # Możliwość ręcznego uruchomienia
+    - cron: "*/5 * * * *"  # Uruchamianie co 5 minut
+  workflow_dispatch:
 
 jobs:
-  build:
+  analyze:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout repozytorium
-      uses: actions/checkout@v2
+      - name: Checkout repozytorium
+        uses: actions/checkout@v3
 
-    - name: Ustawienie Pythona
-      uses: actions/setup-python@v2
-      with:
-        python-version: '3.9'
+      - name: Ustaw Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.x'
 
-    - name: Instalacja wymaganych bibliotek
-      run: |
-        python -m pip install --upgrade pip
-        pip install scipy pandas numpy yfinance requests statsmodels scikit-learn
+      - name: Instalacja wymaganych pakietów
+        run: pip install tradingview_ta pandas requests
 
-    - name: Uruchomienie skryptu analizy
-      run: python3 analiza.py
+      - name: Uruchom skrypt analizy
+        run: python analiza.py
