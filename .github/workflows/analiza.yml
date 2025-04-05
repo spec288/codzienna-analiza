@@ -31,11 +31,10 @@ jobs:
       - name: Run analysis script
         run: python analiza.py
 
-      # Krok 6: Wysyłanie wiadomości do Telegram
+      # Krok 6: Wysyłanie wiadomości do Telegrama
       - name: Send to Telegram
         run: |
           curl -X POST \
-          "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
-          -d "chat_id=$CHAT_ID" \
-          -d "text=Analiza rynkowa: ${{ steps.run_analysis_script.outputs.suggestion }}"
-
+          "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
+          -d "chat_id=${{ secrets.CHAT_ID }}" \
+          -d "text=Analiza rynkowa: ${GITHUB_SHA} zakończona pomyślnie!"
