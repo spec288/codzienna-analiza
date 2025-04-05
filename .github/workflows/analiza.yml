@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:
+  workflow_dispatch:  # Możliwość ręcznego uruchomienia
 
 jobs:
   build:
@@ -35,6 +35,6 @@ jobs:
       - name: Send to Telegram
         run: |
           curl -X POST \
-          "https://api.telegram.org/bot${{ secrets.TELEGRAM_TOKEN }}/sendMessage" \
-          -d "chat_id=${{ secrets.CHAT_ID }}" \
-          -d "text=Analiza rynkowa: ${GITHUB_SHA} zakończona pomyślnie!"
+          "https://api.telegram.org/bot8105242510:AAEmhbrVJwLF19xvDNRpwKQvH_MhNdoUWdc/sendMessage" \
+          -d "chat_id=-1002655090041" \
+          -d "text=Analiza rynkowa zakończona pomyślnie! SHA: ${GITHUB_SHA}"
