@@ -1,4 +1,4 @@
-yfinance
-pandas
-numpy
-requests
+requests==2.25.1
+python-telegram-bot==13.7
+pandas==1.2.4
+numpy==1.20.2
