@@ -4,7 +4,7 @@ on:
   push:
     branches:
       - main
-  workflow_dispatch:   # Dodajemy możliwość uruchomienia ręcznego
+  workflow_dispatch:
 
 jobs:
   build:
@@ -30,3 +30,12 @@ jobs:
       # Krok 5: Uruchomienie skryptu analizy
       - name: Run analysis script
         run: python analiza.py
+
+      # Krok 6: Wysyłanie wiadomości do Telegram
+      - name: Send to Telegram
+        run: |
+          curl -X POST \
+          "https://api.telegram.org/bot$TELEGRAM_TOKEN/sendMessage" \
+          -d "chat_id=$CHAT_ID" \
+          -d "text=Analiza rynkowa: ${{ steps.run_analysis_script.outputs.suggestion }}"
+
