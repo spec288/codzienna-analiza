@@ -3,8 +3,9 @@ import logging
 import os
 from telegram import Bot
 
-# Tokeny i klucze API - nie zaleca się trzymania ich w kodzie w dłuższej perspektywie czasowej
-telegram_token = '7982983537:AAFwTZ81y0Jj33FKvODd-FpkJiVT57Mqk0g'
+# Nowy token i chat_id
+telegram_token = '8105242510:AAEmhbrVJwLF19xvDNRpwKQvH_MhNdoUWdc'  # Twój nowy token
+chat_id = '-1002655090041'  # Twój nowy chat_id
 news_api_key = '904b75c6009240e3926ca2828abe7a5d'
 
 # Klasa do analizy trendów
@@ -120,7 +121,6 @@ def main():
     suggestion, signals = analyzer.analyze_trend()
 
     # Wyślij dane do Telegram
-    chat_id = 'your_chat_id'  # Podaj swoje ID czatu
     send_to_telegram(suggestion, signals, telegram_token, chat_id)
 
     # Pobierz najnowsze wiadomości
